@@ -1,6 +1,6 @@
 # Development Phases
 
-Last updated: 2026-06-08
+Last updated: 2026-06-13
 
 ## Phase 0 - Discovery
 
@@ -22,7 +22,12 @@ Status: In progress
 
 Status: Pending
 
-- [ ] Decide target platform.
+- [x] Decide target platform.
+- [x] Target platform decision:
+- [x] Main UI is a web app dashboard.
+- [x] Discord bot is a heavily supported companion surface for command-heavy flows.
+- [x] Important actions happen through the Discord bot and in-game chat.
+- [x] Not target platforms for MVP: native mobile app, Electron desktop app, and in-game overlay.
 - [ ] Define Discord bot command list and ping rules.
 - [ ] Define dashboard data model and page layout.
 - [ ] Decide MVP scope.
