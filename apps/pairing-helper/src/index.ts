@@ -25,6 +25,14 @@ interface PairingNotificationData {
   persistentId?: string
 }
 
+interface EncryptedNotificationData {
+  notification?: unknown
+  persistentId?: string
+  object?: {
+    appData?: Record<string, string>
+  }
+}
+
 const helperRoot = fileURLToPath(new URL('..', import.meta.url))
 const repoRoot = resolve(helperRoot, '..', '..')
 const runtimeDir = resolve(repoRoot, '.drust', 'pairing')
@@ -74,6 +82,16 @@ function parsePairingNotification(data: PairingNotificationData): RustplusServer
     appPort,
     playerId,
     playerToken,
+  }
+}
+
+function logIncomingNotification(label: string, data: PairingNotificationData): void {
+  const appData = data.appData ?? {}
+  const type = appData.type ?? 'unknown'
+  console.log(`[drust-pairing-helper] ${label} notification received (type: ${type})`)
+
+  if (Object.keys(appData).length > 0) {
+    console.log(appData)
   }
 }
 
@@ -155,6 +173,8 @@ async function runListen(): Promise<void> {
   const client = new PushReceiverClient(androidId, securityToken, [])
 
   client.on('ON_DATA_RECEIVED', async (data: PairingNotificationData) => {
+    logIncomingNotification('raw', data)
+
     const pairing = parsePairingNotification(data)
     if (!pairing) {
       return
@@ -177,9 +197,20 @@ async function runListen(): Promise<void> {
     process.exit(0)
   })
 
+  client.on('ON_NOTIFICATION_RECEIVED', (data: EncryptedNotificationData) => {
+    console.log('[drust-pairing-helper] encrypted push notification received')
+    if (data.object?.appData) {
+      console.log(data.object.appData)
+    }
+  })
+
   client.on('connect', () => {
     console.log('[drust-pairing-helper] listening for Rust+ pairing notifications')
     console.log('[drust-pairing-helper] next step: open Rust and click Pair with Server')
+  })
+
+  client.on('disconnect', () => {
+    console.log('[drust-pairing-helper] push listener disconnected from FCM')
   })
 
   await client.connect()
