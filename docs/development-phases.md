@@ -42,11 +42,13 @@ Status: Pending
 
 ## Phase 2 - Prototype
 
-Status: Pending
+Status: In progress
 
-- [ ] Scaffold the application.
-- [ ] Build the operation dashboard.
-- [ ] Add timers, roles, checklists, and operation notes.
+- [x] Scaffold the application.
+- [x] Build the operation dashboard.
+- [x] Add timers, roles, checklists, and operation notes.
+- [x] Added a Railway-friendly workspace with `apps/web` and `apps/worker`.
+- [x] Built the first Operations Command dashboard prototype based on the MVP product spec.
 
 ## Phase 3 - Validation
 
