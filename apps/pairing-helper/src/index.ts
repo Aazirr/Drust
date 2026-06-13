@@ -20,7 +20,7 @@ interface FcmConfig {
 }
 
 interface PairingNotificationData {
-  appData?: Record<string, string>
+  appData?: Record<string, string> | Array<{ key?: string; value?: string }>
   from?: string
   persistentId?: string
 }
@@ -29,7 +29,7 @@ interface EncryptedNotificationData {
   notification?: unknown
   persistentId?: string
   object?: {
-    appData?: Record<string, string>
+    appData?: Record<string, string> | Array<{ key?: string; value?: string }>
   }
 }
 
@@ -57,8 +57,55 @@ async function readConfig(): Promise<FcmConfig> {
   return JSON.parse(raw) as FcmConfig
 }
 
+function normalizeAppData(
+  appData: PairingNotificationData['appData'],
+): Record<string, string> {
+  if (!appData) {
+    return {}
+  }
+
+  if (Array.isArray(appData)) {
+    return appData.reduce<Record<string, string>>((accumulator, entry) => {
+      if (entry.key && typeof entry.value === 'string') {
+        accumulator[entry.key] = entry.value
+      }
+      return accumulator
+    }, {})
+  }
+
+  return appData
+}
+
+function parseBodyAppData(body: string | undefined): Record<string, string> {
+  if (!body) {
+    return {}
+  }
+
+  try {
+    const parsed = JSON.parse(body) as unknown
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return {}
+    }
+
+    return Object.entries(parsed).reduce<Record<string, string>>((accumulator, [key, value]) => {
+      if (value === null || value === undefined) {
+        return accumulator
+      }
+
+      accumulator[key] = String(value)
+      return accumulator
+    }, {})
+  } catch {
+    return {}
+  }
+}
+
 function parsePairingNotification(data: PairingNotificationData): RustplusServerPairing | null {
-  const appData = data.appData ?? {}
+  const rawAppData = normalizeAppData(data.appData)
+  const appData = {
+    ...rawAppData,
+    ...parseBodyAppData(rawAppData.body),
+  }
   const serverIp = appData.ip
   const appPort = Number(appData.port)
   const playerId = appData.playerId
@@ -86,7 +133,7 @@ function parsePairingNotification(data: PairingNotificationData): RustplusServer
 }
 
 function logIncomingNotification(label: string, data: PairingNotificationData): void {
-  const appData = data.appData ?? {}
+  const appData = normalizeAppData(data.appData)
   const type = appData.type ?? 'unknown'
   console.log(`[drust-pairing-helper] ${label} notification received (type: ${type})`)
 

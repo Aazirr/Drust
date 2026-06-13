@@ -57,6 +57,7 @@ Status: In progress
 - [x] Refined the web dashboard UI to better match the tactical, fast, and reliable product tone.
 - [x] Added guided Rust+ pairing state in the dashboard and worker so Drust can show the pairing runbook instead of only static env status.
 - [x] Built a local Drust Rust+ pairing helper that captures Pair with Server notifications and imports runtime Rust+ credentials into the worker.
+- [x] Fixed Rust+ pairing payload handling so the helper can parse key/value push payloads and embedded server JSON from live Pair with Server notifications.
 
 ## Phase 3 - Validation
 
