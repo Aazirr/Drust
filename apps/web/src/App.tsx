@@ -68,6 +68,22 @@ function formatStatusLabel(value: string): string {
   return value.replaceAll('-', ' ')
 }
 
+function formatDiscordStatus(value: DashboardSnapshot['integrations']['discord']): string {
+  if (value === 'bot-and-webhook') {
+    return 'Bot + webhook live'
+  }
+
+  if (value === 'bot-only') {
+    return 'Bot live'
+  }
+
+  if (value === 'webhook-only') {
+    return 'Webhook live'
+  }
+
+  return 'Pending'
+}
+
 function SectionHeading({
   title,
   detail,
@@ -107,8 +123,8 @@ function StatusBar({
     },
     {
       label: 'Discord',
-      value: snapshot.integrations.discord === 'webhook' ? 'Webhook live' : 'Pending',
-      tone: snapshot.integrations.discord === 'webhook' ? 'good' : 'neutral',
+      value: formatDiscordStatus(snapshot.integrations.discord),
+      tone: snapshot.integrations.discord === 'disabled' ? 'neutral' : 'good',
     },
     {
       label: 'Server',
@@ -402,10 +418,12 @@ function ConfigViewPage({
   snapshot,
   onTriggerAlarm,
   onStartRustplusPairing,
+  onStartSmartAlarmBinding,
 }: {
   snapshot: DashboardSnapshot
   onTriggerAlarm: (target: OperationTarget, entityId: string) => Promise<void>
   onStartRustplusPairing: () => Promise<void>
+  onStartSmartAlarmBinding: (target: 'small-oil' | 'large-oil') => Promise<void>
 }) {
   return (
     <section className="config-grid">
@@ -487,11 +505,30 @@ function ConfigViewPage({
                 <h3>{formatTargetLabel(binding.target)}</h3>
                 <p>Entity #{binding.entityId}</p>
               </div>
-              <button type="button" onClick={() => void onTriggerAlarm(binding.target, binding.entityId)}>
-                Fire test
-              </button>
+              <div className="config-card-actions">
+                <button type="button" onClick={() => void onStartSmartAlarmBinding(binding.target as 'small-oil' | 'large-oil')}>
+                  Rebind
+                </button>
+                <button type="button" onClick={() => void onTriggerAlarm(binding.target, binding.entityId)}>
+                  Fire test
+                </button>
+              </div>
             </article>
           ))}
+          <article className="config-card config-card-guide">
+            <div>
+              <h3>Bind next Smart Alarm</h3>
+              <p>Choose which Oil Rig target the next paired Smart Alarm should belong to.</p>
+            </div>
+            <div className="config-card-actions">
+              <button type="button" onClick={() => void onStartSmartAlarmBinding('small-oil')}>
+                Bind Small Oil
+              </button>
+              <button type="button" onClick={() => void onStartSmartAlarmBinding('large-oil')}>
+                Bind Large Oil
+              </button>
+            </div>
+          </article>
         </div>
       </section>
 
@@ -506,6 +543,7 @@ function ConfigViewPage({
           <ConfigItem label="Operations Channel" value={snapshot.discordConfig.operationsChannelId} />
           <ConfigItem label="System Channel" value={snapshot.discordConfig.systemChannelId} />
           <ConfigItem label="Operations Role" value={snapshot.discordConfig.operationsRoleId} />
+          <ConfigItem label="Integration Status" value={formatDiscordStatus(snapshot.integrations.discord)} />
         </div>
       </section>
 
@@ -604,7 +642,17 @@ function MapCanvas({
 }
 
 function App() {
-  const { snapshot, state, error, refresh, triggerAlarm, extendTimer, closeOperation, startRustplusPairing } =
+  const {
+    snapshot,
+    state,
+    error,
+    refresh,
+    triggerAlarm,
+    extendTimer,
+    closeOperation,
+    startRustplusPairing,
+    startSmartAlarmBinding,
+  } =
     useDashboardState()
   const [section, setSection] = useState<AppSection>('overview')
   const deferredSnapshot = useDeferredValue(snapshot)
@@ -712,6 +760,7 @@ function App() {
             snapshot={activeSnapshot}
             onTriggerAlarm={handleTriggerAlarm}
             onStartRustplusPairing={startRustplusPairing}
+            onStartSmartAlarmBinding={startSmartAlarmBinding}
           />
         )}
       </section>

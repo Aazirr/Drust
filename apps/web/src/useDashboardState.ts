@@ -151,6 +151,27 @@ export function useDashboardState() {
     }
   }
 
+  async function startSmartAlarmBinding(target: 'small-oil' | 'large-oil'): Promise<void> {
+    try {
+      const nextSnapshot = await postJson<{ target: 'small-oil' | 'large-oil' }, DashboardSnapshot>(
+        '/api/rustplus/device-binding/start',
+        { target },
+      )
+      startTransition(() => {
+        setSnapshot(withDerivedSnapshot(nextSnapshot))
+        setState('ready')
+        setError(null)
+      })
+    } catch (nextError) {
+      const message =
+        nextError instanceof Error ? nextError.message : 'Unable to start Smart Alarm binding.'
+      startTransition(() => {
+        setState('offline')
+        setError(message)
+      })
+    }
+  }
+
   return {
     snapshot: withDerivedSnapshot(snapshot),
     state,
@@ -160,5 +181,6 @@ export function useDashboardState() {
     extendTimer,
     closeOperation,
     startRustplusPairing,
+    startSmartAlarmBinding,
   }
 }

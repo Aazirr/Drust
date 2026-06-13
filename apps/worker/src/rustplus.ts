@@ -66,6 +66,7 @@ export function createConnectionInputFromPairing(
 export class RustplusBridgeManager {
   private client: RustPlusLike | null = null
   private sessionId = 0
+  private currentConnection: RustplusConnectionInput | null = null
 
   constructor(
     private readonly state: WorkerState,
@@ -87,9 +88,26 @@ export class RustplusBridgeManager {
     await this.connect(connection)
   }
 
+  updateAlarmBinding(target: 'small-oil' | 'large-oil', entityId: string): void {
+    if (!this.currentConnection) {
+      return
+    }
+
+    if (target === 'small-oil') {
+      this.currentConnection.smallOilEntityId = entityId
+    } else {
+      this.currentConnection.largeOilEntityId = entityId
+    }
+
+    if (this.client) {
+      this.client.getEntityInfo(entityId)
+    }
+  }
+
   private async connect(connection: RustplusConnectionInput): Promise<void> {
     const currentSession = ++this.sessionId
     this.disconnectCurrentClient()
+    this.currentConnection = { ...connection }
 
     const module = await import('@liamcottle/rustplus.js')
     const RustPlus = (module.default ?? module) as new (

@@ -47,6 +47,8 @@ export function formatPairingStatus(
     }
     discord: {
       webhookConfigured: boolean
+      botHealthConfigured: boolean
+      botConnected: boolean
     }
   },
   botReady: boolean,
@@ -57,6 +59,8 @@ export function formatPairingStatus(
     `Smart Alarm IDs: ${pairing.rustplus.smartAlarmsConfigured ? 'configured' : 'missing'}`,
     `Discord webhook: ${pairing.discord.webhookConfigured ? 'configured' : 'missing'}`,
     `Discord bot token: ${botReady ? 'configured' : 'missing'}`,
+    `Discord bot health link: ${pairing.discord.botHealthConfigured ? 'configured' : 'missing'}`,
+    `Discord bot reachability: ${pairing.discord.botConnected ? 'online' : 'offline'}`,
     `Worker link: ${snapshot.integrations.rustplus}`,
   ].join('\n')
 }

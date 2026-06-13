@@ -58,6 +58,8 @@ Status: In progress
 - [x] Added guided Rust+ pairing state in the dashboard and worker so Drust can show the pairing runbook instead of only static env status.
 - [x] Built a local Drust Rust+ pairing helper that captures Pair with Server notifications and imports runtime Rust+ credentials into the worker.
 - [x] Fixed Rust+ pairing payload handling so the helper can parse key/value push payloads and embedded server JSON from live Pair with Server notifications.
+- [x] Added a Smart Alarm binding helper flow so Small Oil and Large Oil entity IDs can be captured from live Rust+ device pairing notifications and imported into the worker.
+- [x] Expanded Discord integration status so the web app can distinguish webhook-only, bot-only, and bot-plus-webhook deployments.
 
 ## Phase 3 - Validation
 

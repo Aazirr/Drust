@@ -5,9 +5,12 @@ interface PairingStatusResponse {
     configured: boolean
     smartAlarmsConfigured: boolean
     connectionStatus: string
+    pairingMode: string
   }
   discord: {
     webhookConfigured: boolean
+    botHealthConfigured: boolean
+    botConnected: boolean
   }
 }
 

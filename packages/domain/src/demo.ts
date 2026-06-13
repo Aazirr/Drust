@@ -204,7 +204,9 @@ const rustplusPairing: RustplusPairingGuide = {
       done: false,
     },
   ],
+  deviceBindingTarget: null,
   lastImportedPairing: null,
+  lastImportedDevicePairing: null,
 }
 
 const map: MapSnapshot = {
@@ -252,7 +254,7 @@ export function createDemoSnapshot(now = new Date()): DashboardSnapshot {
     rustplusPairing,
     integrations: {
       rustplus: 'mock',
-      discord: 'disabled',
+      discord: 'bot-and-webhook',
     },
     updatedAt: now.toISOString(),
   }

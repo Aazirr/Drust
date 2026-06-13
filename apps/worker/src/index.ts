@@ -6,6 +6,8 @@ import { WorkerState } from './state.js'
 import type {
   AlarmTriggerInput,
   OperationCloseInput,
+  OperationTarget,
+  RustplusEntityPairing,
   RustplusServerPairing,
   StartOperationInput,
 } from '@drust/domain'
@@ -24,11 +26,32 @@ const smartAlarmIdsConfigured = Boolean(
   config.rustplus.smallOilEntityId && config.rustplus.largeOilEntityId,
 )
 
-state.setDiscordMode(discord.enabled ? 'webhook' : 'disabled')
+state.syncDiscordMode({
+  webhookConfigured: discord.enabled,
+  botConnected: false,
+})
 state.syncRustplusPairingFromConfig({
   credentialsConfigured: rustplusCredentialsConfigured,
   smartAlarmsConfigured: smartAlarmIdsConfigured,
 })
+
+async function refreshDiscordStatus(): Promise<void> {
+  let botConnected = false
+
+  if (config.discordBotHealthUrl) {
+    try {
+      const response = await fetch(config.discordBotHealthUrl)
+      botConnected = response.ok
+    } catch {
+      botConnected = false
+    }
+  }
+
+  state.syncDiscordMode({
+    webhookConfigured: discord.enabled,
+    botConnected,
+  })
+}
 
 function writeJson(response: ServerResponse, statusCode: number, payload: unknown): void {
   response.writeHead(statusCode, {
@@ -74,6 +97,7 @@ const server = createServer(async (request: IncomingMessage, response: ServerRes
   }
 
   if (request.method === 'GET' && requestUrl.pathname === '/health') {
+    await refreshDiscordStatus()
     writeJson(response, 200, {
       service: 'drust-worker',
       status: 'ok',
@@ -83,11 +107,13 @@ const server = createServer(async (request: IncomingMessage, response: ServerRes
   }
 
   if (request.method === 'GET' && requestUrl.pathname === '/api/snapshot') {
+    await refreshDiscordStatus()
     writeJson(response, 200, state.getSnapshot())
     return
   }
 
   if (request.method === 'GET' && requestUrl.pathname === '/api/pairing-status') {
+    await refreshDiscordStatus()
     const snapshot = state.getSnapshot()
     const importedPairing = snapshot.rustplusPairing.lastImportedPairing
 
@@ -100,6 +126,10 @@ const server = createServer(async (request: IncomingMessage, response: ServerRes
       },
       discord: {
         webhookConfigured: discord.enabled,
+        botHealthConfigured: Boolean(config.discordBotHealthUrl),
+        botConnected:
+          snapshot.integrations.discord === 'bot-only' ||
+          snapshot.integrations.discord === 'bot-and-webhook',
       },
     })
     return
@@ -114,6 +144,18 @@ const server = createServer(async (request: IncomingMessage, response: ServerRes
 
   if (request.method === 'POST' && requestUrl.pathname === '/api/rustplus/pairing/start') {
     writeJson(response, 200, state.startRustplusPairingGuide())
+    return
+  }
+
+  if (request.method === 'POST' && requestUrl.pathname === '/api/rustplus/device-binding/start') {
+    const payload = await readJson<{ target: OperationTarget }>(request)
+    if (payload.target !== 'small-oil' && payload.target !== 'large-oil') {
+      writeJson(response, 400, { message: 'Smart Alarm binding only supports small-oil or large-oil.' })
+      return
+    }
+
+    const target = payload.target as 'small-oil' | 'large-oil'
+    writeJson(response, 200, state.startSmartAlarmBindingGuide(target))
     return
   }
 
@@ -133,6 +175,19 @@ const server = createServer(async (request: IncomingMessage, response: ServerRes
       })
       writeJson(response, 200, nextSnapshot)
     }
+    return
+  }
+
+  if (request.method === 'POST' && requestUrl.pathname === '/api/rustplus/device-binding/import') {
+    const payload = await readJson<RustplusEntityPairing>(request)
+    if (payload.target !== 'small-oil' && payload.target !== 'large-oil') {
+      writeJson(response, 400, { message: 'Smart Alarm import only supports small-oil or large-oil.' })
+      return
+    }
+
+    const nextSnapshot = state.applySmartAlarmBindingImport(payload)
+    rustplusBridge.updateAlarmBinding(payload.target, payload.entityId)
+    writeJson(response, 200, nextSnapshot)
     return
   }
 
@@ -164,6 +219,7 @@ server.listen(config.port, async () => {
 
   try {
     await rustplusBridge.startFromConfig(config)
+    await refreshDiscordStatus()
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown Rust+ startup error.'
     state.updateServerConnection({

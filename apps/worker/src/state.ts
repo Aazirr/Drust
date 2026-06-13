@@ -10,6 +10,8 @@ import {
   type AlarmTriggerInput,
   type DashboardSnapshot,
   type OperationCloseInput,
+  type OperationTarget,
+  type RustplusEntityPairing,
   type RustplusServerPairing,
   type StartOperationInput,
 } from '@drust/domain'
@@ -49,6 +51,24 @@ export class WorkerState {
       },
       updatedAt: new Date().toISOString(),
     }
+  }
+
+  syncDiscordMode({
+    webhookConfigured,
+    botConnected,
+  }: {
+    webhookConfigured: boolean
+    botConnected: boolean
+  }): void {
+    const mode = webhookConfigured
+      ? botConnected
+        ? 'bot-and-webhook'
+        : 'webhook-only'
+      : botConnected
+        ? 'bot-only'
+        : 'disabled'
+
+    this.setDiscordMode(mode)
   }
 
   updateServerConnection(patch: Partial<DashboardSnapshot['serverConnection']>): void {
@@ -102,7 +122,9 @@ export class WorkerState {
             done: smartAlarmsConfigured,
           },
         ],
+        deviceBindingTarget: null,
         lastImportedPairing: null,
+        lastImportedDevicePairing: null,
       },
       updatedAt: new Date().toISOString(),
     }
@@ -138,7 +160,9 @@ export class WorkerState {
             done: false,
           },
         ],
+        deviceBindingTarget: null,
         lastImportedPairing: this.snapshot.rustplusPairing.lastImportedPairing,
+        lastImportedDevicePairing: this.snapshot.rustplusPairing.lastImportedDevicePairing,
       },
       updatedAt: startedAt,
     }
@@ -183,8 +207,133 @@ export class WorkerState {
             done: false,
           },
         ],
+        deviceBindingTarget: this.snapshot.rustplusPairing.deviceBindingTarget,
         lastImportedPairing: pairing,
+        lastImportedDevicePairing: this.snapshot.rustplusPairing.lastImportedDevicePairing,
       },
+      updatedAt: pairing.receivedAt,
+    }
+
+    return this.getSnapshot()
+  }
+
+  startSmartAlarmBindingGuide(target: OperationTarget): DashboardSnapshot {
+    const startedAt = new Date().toISOString()
+    const label = target === 'small-oil' ? 'Small Oil' : 'Large Oil'
+    this.snapshot = {
+      ...this.snapshot,
+      rustplusPairing: {
+        ...this.snapshot.rustplusPairing,
+        status: 'configured',
+        sessionId: `bind-${target}-${startedAt.replaceAll(':', '').replaceAll('.', '').replaceAll('-', '')}`,
+        startedAt,
+        mode: this.snapshot.rustplusPairing.mode,
+        headline: `Waiting for ${label} Smart Alarm pair`,
+        detail:
+          `Run the local helper for ${label}, then use the wire tool in game to pair that Smart Alarm with Rust+. Drust will bind the next captured device notification to this target.`,
+        helperCommand: `npm.cmd --workspace @drust/pairing-helper start -- bind-alarm ${target}`,
+        steps: [
+          {
+            label: 'Helper listener ready',
+            detail: `Start the local helper in bind mode for ${label}.`,
+            done: true,
+          },
+          {
+            label: 'Pair Smart Alarm in game',
+            detail: 'Power the Smart Alarm, equip the wire tool, hold E on the device, and pair it to Rust+.',
+            done: false,
+          },
+          {
+            label: 'Worker binds entity ID',
+            detail: `Drust will store the next paired Smart Alarm entity ID for ${label} and subscribe to its broadcasts.`,
+            done: false,
+          },
+        ],
+        deviceBindingTarget: target,
+        lastImportedPairing: this.snapshot.rustplusPairing.lastImportedPairing,
+        lastImportedDevicePairing: this.snapshot.rustplusPairing.lastImportedDevicePairing,
+      },
+      updatedAt: startedAt,
+    }
+
+    return this.getSnapshot()
+  }
+
+  applySmartAlarmBindingImport(pairing: RustplusEntityPairing): DashboardSnapshot {
+    const label = pairing.target === 'small-oil' ? 'Small Oil' : 'Large Oil'
+    const existingBinding = this.snapshot.alarmBindings.find((binding) => binding.target === pairing.target)
+    const nextBindings = existingBinding
+      ? this.snapshot.alarmBindings.map((binding) =>
+          binding.target === pairing.target
+            ? {
+                ...binding,
+                entityId: pairing.entityId,
+                enabled: true,
+              }
+            : binding,
+        )
+      : [
+          ...this.snapshot.alarmBindings,
+          {
+            bindingId: `bind-${pairing.target}`,
+            target: pairing.target,
+            entityId: pairing.entityId,
+            enabled: true,
+            lastTriggeredAt: null,
+          },
+        ]
+
+    const smallOilBound = nextBindings.some(
+      (binding) => binding.target === 'small-oil' && Boolean(binding.entityId),
+    )
+    const largeOilBound = nextBindings.some(
+      (binding) => binding.target === 'large-oil' && Boolean(binding.entityId),
+    )
+
+    this.snapshot = {
+      ...this.snapshot,
+      alarmBindings: nextBindings,
+      rustplusPairing: {
+        ...this.snapshot.rustplusPairing,
+        status: 'configured',
+        sessionId: null,
+        startedAt: pairing.receivedAt,
+        headline: `${label} Smart Alarm bound from local helper`,
+        detail:
+          `${label} now points at entity ${pairing.entityId}. Once both Oil Rig alarms are bound, Drust can auto-start operations from live Rust+ device broadcasts.`,
+        helperCommand: null,
+        steps: [
+          {
+            label: 'Helper listener completed',
+            detail: `The local helper captured the ${label} device pairing notification from Rust+.`,
+            done: true,
+          },
+          {
+            label: 'Entity stored in Drust',
+            detail: `Drust saved ${label} as entity ${pairing.entityId} and can subscribe to its state changes.`,
+            done: true,
+          },
+          {
+            label: 'Both Oil Rig alarms ready',
+            detail: 'Bind both Small Oil and Large Oil Smart Alarms to complete the live trigger path.',
+            done: smallOilBound && largeOilBound,
+          },
+        ],
+        deviceBindingTarget: null,
+        lastImportedPairing: this.snapshot.rustplusPairing.lastImportedPairing,
+        lastImportedDevicePairing: pairing,
+      },
+      activityLog: [
+        {
+          eventId: `connection-change-${pairing.receivedAt.replaceAll(':', '').replaceAll('.', '').replaceAll('-', '')}`,
+          type: 'connection-change' as const,
+          target: pairing.target,
+          source: 'smart-alarm' as const,
+          message: `${label} Smart Alarm bound to entity ${pairing.entityId}.`,
+          createdAt: pairing.receivedAt,
+        },
+        ...this.snapshot.activityLog,
+      ].slice(0, 18),
       updatedAt: pairing.receivedAt,
     }
 

@@ -2,7 +2,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawn } from 'node:child_process'
-import type { RustplusServerPairing } from '@drust/domain'
+import type { OperationTarget, RustplusEntityPairing, RustplusServerPairing } from '@drust/domain'
 
 type PushReceiverClientLike = {
   on: (event: string, handler: (...args: any[]) => void) => void
@@ -46,6 +46,7 @@ function printUsage(): void {
   console.log('Commands:')
   console.log('  register   Launch rustplus.js fcm-register with a project-local config file')
   console.log('  listen     Listen for Pair with Server notifications and import them into Drust')
+  console.log('  bind-alarm <small-oil|large-oil>   Listen for a Smart Alarm pairing and bind it to Drust')
 }
 
 async function ensureRuntimeDir(): Promise<void> {
@@ -132,6 +133,34 @@ function parsePairingNotification(data: PairingNotificationData): RustplusServer
   }
 }
 
+function parseEntityPairingNotification(
+  data: PairingNotificationData,
+  target: OperationTarget,
+): RustplusEntityPairing | null {
+  const rawAppData = normalizeAppData(data.appData)
+  const appData = {
+    ...rawAppData,
+    ...parseBodyAppData(rawAppData.body),
+  }
+
+  if (appData.type !== 'entity') {
+    return null
+  }
+
+  if (!appData.entityId) {
+    return null
+  }
+
+  return {
+    source: 'local-helper',
+    receivedAt: new Date().toISOString(),
+    target,
+    entityId: appData.entityId,
+    entityType: appData.entityType ?? null,
+    entityName: appData.entityName ?? appData.name ?? null,
+  }
+}
+
 function logIncomingNotification(label: string, data: PairingNotificationData): void {
   const appData = normalizeAppData(data.appData)
   const type = appData.type ?? 'unknown'
@@ -147,6 +176,13 @@ async function writeCapture(pairing: RustplusServerPairing): Promise<void> {
   await writeFile(capturePath, JSON.stringify(pairing, null, 2), 'utf8')
 }
 
+async function writeAlarmCapture(pairing: RustplusEntityPairing): Promise<string> {
+  await ensureRuntimeDir()
+  const path = resolve(runtimeDir, `${pairing.target}-smart-alarm.json`)
+  await writeFile(path, JSON.stringify(pairing, null, 2), 'utf8')
+  return path
+}
+
 async function postPairingToWorker(pairing: RustplusServerPairing): Promise<void> {
   const response = await fetch(`${workerBaseUrl}/api/rustplus/pairing/import`, {
     method: 'POST',
@@ -158,6 +194,20 @@ async function postPairingToWorker(pairing: RustplusServerPairing): Promise<void
 
   if (!response.ok) {
     throw new Error(`Worker import failed with status ${response.status}`)
+  }
+}
+
+async function postAlarmPairingToWorker(pairing: RustplusEntityPairing): Promise<void> {
+  const response = await fetch(`${workerBaseUrl}/api/rustplus/device-binding/import`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(pairing),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Worker alarm import failed with status ${response.status}`)
   }
 }
 
@@ -263,6 +313,79 @@ async function runListen(): Promise<void> {
   await client.connect()
 }
 
+async function runBindAlarm(target: OperationTarget): Promise<void> {
+  await ensureRuntimeDir()
+
+  let config: FcmConfig
+  try {
+    config = await readConfig()
+  } catch {
+    throw new Error(
+      `Missing ${configPath}. Run "npm --workspace @drust/pairing-helper start -- register" first.`,
+    )
+  }
+
+  const androidId = config.fcm_credentials?.gcm?.androidId
+  const securityToken = config.fcm_credentials?.gcm?.securityToken
+
+  if (!androidId || !securityToken) {
+    throw new Error('FCM credentials are missing. Run the register command again.')
+  }
+
+  const pushReceiverModule = await import('@liamcottle/push-receiver/src/client.js')
+  const PushReceiverClient = (pushReceiverModule.default ?? pushReceiverModule) as new (
+    androidId: string,
+    securityToken: string,
+    persistentIds: string[],
+  ) => PushReceiverClientLike
+
+  const client = new PushReceiverClient(androidId, securityToken, [])
+  const label = target === 'small-oil' ? 'Small Oil' : 'Large Oil'
+
+  client.on('ON_DATA_RECEIVED', async (data: PairingNotificationData) => {
+    logIncomingNotification('raw', data)
+
+    const pairing = parseEntityPairingNotification(data, target)
+    if (!pairing) {
+      return
+    }
+
+    console.log(`[drust-pairing-helper] captured ${label} Smart Alarm entity ${pairing.entityId}`)
+    const alarmCapturePath = await writeAlarmCapture(pairing)
+    console.log(`[drust-pairing-helper] saved alarm binding payload to ${alarmCapturePath}`)
+
+    try {
+      await postAlarmPairingToWorker(pairing)
+      console.log(`[drust-pairing-helper] imported ${label} alarm binding into ${workerBaseUrl}`)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown worker import error.'
+      console.error(`[drust-pairing-helper] alarm binding import failed: ${message}`)
+      console.error('[drust-pairing-helper] the alarm binding file was still saved locally for reuse.')
+    }
+
+    client.destroy()
+    process.exit(0)
+  })
+
+  client.on('ON_NOTIFICATION_RECEIVED', (data: EncryptedNotificationData) => {
+    console.log('[drust-pairing-helper] encrypted push notification received')
+    if (data.object?.appData) {
+      console.log(data.object.appData)
+    }
+  })
+
+  client.on('connect', () => {
+    console.log(`[drust-pairing-helper] listening for ${label} Smart Alarm pairing notifications`)
+    console.log('[drust-pairing-helper] next step: power the Smart Alarm, use wire tool, hold E, and pair it')
+  })
+
+  client.on('disconnect', () => {
+    console.log('[drust-pairing-helper] push listener disconnected from FCM')
+  })
+
+  await client.connect()
+}
+
 async function main(): Promise<void> {
   const command = process.argv[2]
 
@@ -278,6 +401,16 @@ async function main(): Promise<void> {
 
   if (command === 'listen') {
     await runListen()
+    return
+  }
+
+  if (command === 'bind-alarm') {
+    const target = process.argv[3] as OperationTarget | undefined
+    if (target !== 'small-oil' && target !== 'large-oil') {
+      throw new Error('bind-alarm requires a target: small-oil or large-oil')
+    }
+
+    await runBindAlarm(target)
     return
   }
 

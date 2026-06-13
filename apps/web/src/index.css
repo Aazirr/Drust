@@ -671,6 +671,17 @@ button {
   gap: 12px;
 }
 
+.config-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: end;
+}
+
+.config-card-guide {
+  align-items: start;
+}
+
 .alarm-card p {
   margin-top: 4px;
 }

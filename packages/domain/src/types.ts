@@ -138,6 +138,15 @@ export interface RustplusServerPairing {
   playerToken: string
 }
 
+export interface RustplusEntityPairing {
+  source: 'local-helper'
+  receivedAt: string
+  target: OperationTarget
+  entityId: string
+  entityType: string | null
+  entityName: string | null
+}
+
 export interface RustplusPairingGuide {
   status: RustplusPairingStatus
   sessionId: string | null
@@ -147,12 +156,14 @@ export interface RustplusPairingGuide {
   detail: string
   helperCommand: string | null
   steps: RustplusPairingStep[]
+  deviceBindingTarget: OperationTarget | null
   lastImportedPairing: RustplusServerPairing | null
+  lastImportedDevicePairing: RustplusEntityPairing | null
 }
 
 export interface IntegrationStatus {
   rustplus: 'mock' | 'connected' | 'disabled'
-  discord: 'webhook' | 'disabled'
+  discord: 'disabled' | 'webhook-only' | 'bot-only' | 'bot-and-webhook'
 }
 
 export interface DashboardSnapshot {
