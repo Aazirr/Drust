@@ -11,10 +11,10 @@ import { useDashboardState } from './useDashboardState'
 
 type AppSection = 'overview' | 'map' | 'config'
 
-const navItems: Array<{ id: AppSection; label: string }> = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'map', label: 'Map View' },
-  { id: 'config', label: 'Config' },
+const navItems: Array<{ id: AppSection; label: string; detail: string }> = [
+  { id: 'overview', label: 'Overview', detail: 'Live operation, alarms, team prep' },
+  { id: 'map', label: 'Map', detail: 'Markers, team positions, target watch' },
+  { id: 'config', label: 'Config', detail: 'Rust+, Discord, alarm bindings' },
 ]
 
 function formatTargetLabel(target: OperationTarget): string {
@@ -40,6 +40,19 @@ function formatShortTime(timestamp: string | null): string {
   })
 }
 
+function formatLongTime(timestamp: string | null): string {
+  if (!timestamp) {
+    return 'Not available'
+  }
+
+  return new Date(timestamp).toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
 function formatRemaining(seconds: number | null): string {
   if (seconds === null) {
     return '--:--'
@@ -49,6 +62,30 @@ function formatRemaining(seconds: number | null): string {
   const minutes = Math.floor(clamped / 60)
   const remainingSeconds = clamped % 60
   return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`
+}
+
+function formatStatusLabel(value: string): string {
+  return value.replaceAll('-', ' ')
+}
+
+function SectionHeading({
+  title,
+  detail,
+  meta,
+}: {
+  title: string
+  detail?: string
+  meta?: string
+}) {
+  return (
+    <div className="section-heading">
+      <div>
+        <h2 className="section-title">{title}</h2>
+        {detail ? <p className="section-detail">{detail}</p> : null}
+      </div>
+      {meta ? <span className="meta-chip">{meta}</span> : null}
+    </div>
+  )
 }
 
 function StatusBar({
@@ -65,12 +102,12 @@ function StatusBar({
   const items = [
     {
       label: 'Rust+',
-      value: snapshot.serverConnection.connectionStatus,
-      tone: snapshot.serverConnection.connectionStatus === 'connected' ? 'good' : 'accent',
+      value: formatStatusLabel(snapshot.serverConnection.connectionStatus),
+      tone: snapshot.serverConnection.connectionStatus === 'connected' ? 'good' : 'warn',
     },
     {
       label: 'Discord',
-      value: snapshot.integrations.discord === 'webhook' ? 'Webhook live' : 'Dry run',
+      value: snapshot.integrations.discord === 'webhook' ? 'Webhook live' : 'Pending',
       tone: snapshot.integrations.discord === 'webhook' ? 'good' : 'neutral',
     },
     {
@@ -79,28 +116,40 @@ function StatusBar({
       tone: 'neutral',
     },
     {
-      label: 'Rust Time',
+      label: 'Rust time',
       value: snapshot.serverConnection.currentRustTime,
-      tone: 'accent',
+      tone: 'neutral',
     },
   ] as const
 
   return (
     <>
       <header className="status-bar">
-        {items.map((item) => (
-          <article className={`status-chip status-chip-${item.tone}`} key={item.label}>
-            <span>{item.label}</span>
-            <strong>{item.value}</strong>
-          </article>
-        ))}
-        <button className="refresh-button" type="button" onClick={() => void onRefresh()}>
-          {state === 'loading' ? 'Syncing...' : 'Refresh'}
-        </button>
+        <div className="status-bar-copy">
+          <p className="kicker">Live board</p>
+          <h2>Operations remain visible even when the squad is split between game and Discord.</h2>
+        </div>
+        <div className="status-grid">
+          {items.map((item) => (
+            <article className={`status-chip status-chip-${item.tone}`} key={item.label}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+            </article>
+          ))}
+        </div>
+        <div className="status-bar-actions">
+          <div className="sync-meta">
+            <span>Last sync</span>
+            <strong>{formatLongTime(snapshot.updatedAt)}</strong>
+          </div>
+          <button className="refresh-button" type="button" onClick={() => void onRefresh()}>
+            {state === 'loading' ? 'Syncing...' : 'Refresh state'}
+          </button>
+        </div>
       </header>
       {(state === 'offline' || error) && (
         <div className="warning-banner">
-          Worker unavailable. Showing shared fallback state while the web app stays usable.
+          Worker unreachable. The dashboard is still showing fallback state so the runbook stays readable.
         </div>
       )}
     </>
@@ -123,23 +172,23 @@ function OverviewPage({
       <div className="main-column">
         <section className="hero-panel">
           <div className="hero-copy">
-            <div className="section-heading">
-              <p className="section-label">Active Operation</p>
-              <span className="pill pill-live">
-                {operation ? operation.status === 'active' ? 'Active' : 'Closed' : 'Idle'}
+            <div className="hero-topline">
+              <p className="kicker">Active operation</p>
+              <span className={`state-pill ${operation ? (operation.status === 'active' ? 'state-live' : 'state-muted') : 'state-muted'}`}>
+                {operation ? (operation.status === 'active' ? 'Operation live' : 'Operation closed') : 'No active operation'}
               </span>
             </div>
-            <h2>{operation ? formatTargetLabel(operation.target) : 'No live operation'}</h2>
+            <h1>{operation ? formatTargetLabel(operation.target) : 'Standing by for the next trigger'}</h1>
             <p className="hero-summary">
               {operation
-                ? 'Auto-created from a Smart Alarm trigger. Countdown and Discord callouts are live.'
-                : 'Waiting for a Rust+ trigger or manual timer start.'}
+                ? 'Smart Alarm input created the board state, the timer, and the Discord callout. The rest of the page is now about execution.'
+                : 'The board will fill itself when Rust+ sends an alarm event, or a manual timer is started from Discord.'}
             </p>
 
-            <dl className="hero-meta">
+            <dl className="hero-facts">
               <div>
                 <dt>Source</dt>
-                <dd>{operation?.source ?? 'None'}</dd>
+                <dd>{operation?.source ?? 'none'}</dd>
               </div>
               <div>
                 <dt>Started</dt>
@@ -153,29 +202,31 @@ function OverviewPage({
           </div>
 
           <div className="timer-panel">
-            <p className="timer-label">Remaining</p>
-            <div className="timer-value">
-              {formatRemaining(operation?.remainingSeconds ?? null)}
+            <div>
+              <p className="kicker">Countdown</p>
+              <div className="timer-value">{formatRemaining(operation?.remainingSeconds ?? null)}</div>
+              <p className="timer-caption">Use quick corrections only when the live state needs help.</p>
             </div>
             <div className="timer-actions">
               <button type="button" onClick={() => void onExtendTimer(2)}>
-                +2 min
+                Add 2 min
               </button>
               <button type="button" onClick={() => void onExtendTimer(5)}>
-                +5 min
+                Add 5 min
               </button>
               <button type="button" className="button-danger" onClick={() => void onCloseOperation()}>
-                Close
+                Close run
               </button>
             </div>
           </div>
         </section>
 
         <section className="panel">
-          <div className="section-heading">
-            <p className="section-label">Alarm State</p>
-            <span className="pill pill-neutral">RF-backed</span>
-          </div>
+          <SectionHeading
+            title="Alarm watch"
+            detail="Bound entities that can open an operation automatically."
+            meta="Smart Alarm"
+          />
           <div className="alarm-grid">
             {snapshot.alarmBindings.map((binding) => (
               <AlarmCard binding={binding} key={binding.bindingId} />
@@ -185,10 +236,7 @@ function OverviewPage({
 
         <section className="panel split-panel">
           <div>
-            <div className="section-heading">
-              <p className="section-label">Roles</p>
-              <span className="pill pill-neutral">Manual for now</span>
-            </div>
+            <SectionHeading title="Roles" detail="Current squad assignments for this run." meta="Manual today" />
             <div className="list-stack">
               {snapshot.roles.map((entry) => (
                 <article className="list-row" key={entry.role}>
@@ -203,10 +251,7 @@ function OverviewPage({
           </div>
 
           <div>
-            <div className="section-heading">
-              <p className="section-label">Checklist</p>
-              <span className="pill pill-neutral">Shore base</span>
-            </div>
+            <SectionHeading title="Checklist" detail="Fast prep items before the launch leaves." meta="Shore base" />
             <div className="list-stack">
               {snapshot.checklist.map((entry) => (
                 <article className="check-row" key={entry.item}>
@@ -221,28 +266,30 @@ function OverviewPage({
 
       <aside className="side-column">
         <section className="panel">
-          <div className="section-heading">
-            <p className="section-label">Event Feed</p>
-            <span className="pill pill-neutral">Live sync</span>
-          </div>
+          <SectionHeading
+            title="Event feed"
+            detail="Recent state changes from alarms, timers, and delivery."
+            meta="Live sync"
+          />
           <div className="timeline">
             {snapshot.activityLog.map((entry) => (
               <article className="timeline-row" key={entry.eventId}>
-                <span className="timeline-time">{formatShortTime(entry.createdAt)}</span>
-                <div>
-                  <h3>{entry.type.replaceAll('-', ' ')}</h3>
-                  <p>{entry.message}</p>
+                <div className="timeline-stamp">
+                  <strong>{formatShortTime(entry.createdAt)}</strong>
+                  <span>{entry.type.replaceAll('-', ' ')}</span>
                 </div>
+                <p>{entry.message}</p>
               </article>
             ))}
           </div>
         </section>
 
         <section className="panel">
-          <div className="section-heading">
-            <p className="section-label">Operation Notes</p>
-            <span className="pill pill-neutral">Working draft</span>
-          </div>
+          <SectionHeading
+            title="Run notes"
+            detail="Supporting context that should stay visible beside the clock."
+            meta="Working draft"
+          />
           <div className="notes-stack">
             {snapshot.notes.map((note) => (
               <article className="note-card" key={note}>
@@ -253,11 +300,17 @@ function OverviewPage({
         </section>
 
         <section className="panel map-preview">
-          <div className="section-heading">
-            <p className="section-label">Map Preview</p>
-            <span className="pill pill-neutral">Full view live</span>
-          </div>
-          <MapCanvas markers={snapshot.map.markers} monuments={snapshot.map.monuments} teamMembers={snapshot.map.teamMembers} compact />
+          <SectionHeading
+            title="Map preview"
+            detail="Condensed awareness for the current board."
+            meta="Operational view"
+          />
+          <MapCanvas
+            markers={snapshot.map.markers}
+            monuments={snapshot.map.monuments}
+            teamMembers={snapshot.map.teamMembers}
+            compact
+          />
         </section>
       </aside>
     </section>
@@ -266,15 +319,18 @@ function OverviewPage({
 
 function AlarmCard({ binding }: { binding: AlarmBinding }) {
   const isHot = Boolean(binding.lastTriggeredAt)
+
   return (
     <article className="alarm-card">
       <div className="alarm-topline">
-        <h3>{formatTargetLabel(binding.target)}</h3>
-        <span className={`pill ${isHot ? 'pill-alert' : 'pill-good'}`}>
+        <div>
+          <h3>{formatTargetLabel(binding.target)}</h3>
+          <p>Entity #{binding.entityId}</p>
+        </div>
+        <span className={`state-pill ${isHot ? 'state-alert' : 'state-good'}`}>
           {binding.enabled ? 'Armed' : 'Disabled'}
         </span>
       </div>
-      <p>Entity #{binding.entityId} subscribed for operation auto-start.</p>
       <div className="alarm-footer">
         <span>Last trigger</span>
         <strong>{formatShortTime(binding.lastTriggeredAt)}</strong>
@@ -287,10 +343,11 @@ function MapViewPage({ snapshot }: { snapshot: DashboardSnapshot }) {
   return (
     <section className="map-layout">
       <section className="panel map-panel">
-        <div className="section-heading">
-          <p className="section-label">Map View</p>
-          <span className="pill pill-neutral">{snapshot.map.teamMembers.length} team signals</span>
-        </div>
+        <SectionHeading
+          title="Map board"
+          detail="Monuments, squad presence, and active markers in one tactical surface."
+          meta={`${snapshot.map.teamMembers.length} team signals`}
+        />
         <MapCanvas
           markers={snapshot.map.markers}
           monuments={snapshot.map.monuments}
@@ -300,10 +357,11 @@ function MapViewPage({ snapshot }: { snapshot: DashboardSnapshot }) {
 
       <aside className="side-column">
         <section className="panel">
-          <div className="section-heading">
-            <p className="section-label">Markers</p>
-            <span className="pill pill-neutral">{snapshot.map.markers.length} tracked</span>
-          </div>
+          <SectionHeading
+            title="Markers"
+            detail="Signals that may matter for the current run."
+            meta={`${snapshot.map.markers.length} tracked`}
+          />
           <div className="list-stack">
             {snapshot.map.markers.map((marker) => (
               <article className="list-row" key={marker.markerId}>
@@ -318,12 +376,11 @@ function MapViewPage({ snapshot }: { snapshot: DashboardSnapshot }) {
         </section>
 
         <section className="panel">
-          <div className="section-heading">
-            <p className="section-label">Team Presence</p>
-            <span className="pill pill-neutral">
-              {snapshot.map.teamMembers.filter((member) => member.isOnline).length} online
-            </span>
-          </div>
+          <SectionHeading
+            title="Team presence"
+            detail="The board view of who is visible and where."
+            meta={`${snapshot.map.teamMembers.filter((member) => member.isOnline).length} online`}
+          />
           <div className="list-stack">
             {snapshot.map.teamMembers.map((member) => (
               <article className="list-row" key={member.steamId}>
@@ -351,10 +408,11 @@ function ConfigViewPage({
   return (
     <section className="config-grid">
       <section className="panel">
-        <div className="section-heading">
-          <p className="section-label">Rust+ Server</p>
-          <span className="pill pill-neutral">{snapshot.integrations.rustplus}</span>
-        </div>
+        <SectionHeading
+          title="Rust+ connection"
+          detail="Core server information pulled into the board."
+          meta={snapshot.integrations.rustplus}
+        />
         <div className="config-list">
           <ConfigItem label="Server Name" value={snapshot.serverConnection.serverName} />
           <ConfigItem label="Host" value={snapshot.serverConnection.host} />
@@ -365,10 +423,11 @@ function ConfigViewPage({
       </section>
 
       <section className="panel">
-        <div className="section-heading">
-          <p className="section-label">Alarm Bindings</p>
-          <span className="pill pill-neutral">{snapshot.alarmBindings.length} active</span>
-        </div>
+        <SectionHeading
+          title="Alarm bindings"
+          detail="Targets that can be triggered directly into the worker."
+          meta={`${snapshot.alarmBindings.length} active`}
+        />
         <div className="config-list">
           {snapshot.alarmBindings.map((binding) => (
             <article className="config-card" key={binding.bindingId}>
@@ -385,10 +444,11 @@ function ConfigViewPage({
       </section>
 
       <section className="panel">
-        <div className="section-heading">
-          <p className="section-label">Discord Routing</p>
-          <span className="pill pill-neutral">{snapshot.integrations.discord}</span>
-        </div>
+        <SectionHeading
+          title="Discord routing"
+          detail="Where operation alerts and system traffic should land."
+          meta={snapshot.integrations.discord}
+        />
         <div className="config-list">
           <ConfigItem label="Alerts Channel" value={snapshot.discordConfig.alertsChannelId} />
           <ConfigItem label="Operations Channel" value={snapshot.discordConfig.operationsChannelId} />
@@ -398,10 +458,11 @@ function ConfigViewPage({
       </section>
 
       <section className="panel">
-        <div className="section-heading">
-          <p className="section-label">Feature Flags</p>
-          <span className="pill pill-neutral">Spec-aligned</span>
-        </div>
+        <SectionHeading
+          title="Feature flags"
+          detail="Spec-driven switches for current behavior."
+          meta="Controlled"
+        />
         <div className="flag-grid">
           <FlagCard
             label="Smart Alarm Mode"
@@ -452,6 +513,7 @@ function MapCanvas({
 }) {
   return (
     <div className={`map-surface ${compact ? 'map-surface-compact' : ''}`} aria-hidden="true">
+      <div className="map-grid" />
       <div className="map-water" />
       {monuments.map((monument) => (
         <div
@@ -480,6 +542,11 @@ function MapCanvas({
           <span>{marker.markerType}</span>
         </div>
       ))}
+      <div className="map-legend">
+        <span>Monuments</span>
+        <span>Team</span>
+        <span>Events</span>
+      </div>
     </div>
   )
 }
@@ -506,14 +573,16 @@ function App() {
     })
   }
 
+  const activeItem = navItems.find((item) => item.id === section) ?? navItems[0]
+
   return (
     <main className="app-shell">
       <aside className="sidebar">
         <div className="brand-block">
-          <p className="eyebrow">Drust</p>
-          <h1>Operations Command</h1>
+          <p className="kicker">Drust command</p>
+          <h1>Fast board clarity for live Rust operations.</h1>
           <p className="supporting-copy">
-            Rust+, web ops state, and Discord pings in one tight loop.
+            A tactical dashboard for Rust+, timer discipline, and Discord coordination without the admin drag.
           </p>
         </div>
 
@@ -525,22 +594,25 @@ function App() {
               type="button"
               onClick={() => handleSectionChange(item.id)}
             >
-              {item.label}
+              <strong>{item.label}</strong>
+              <span>{item.detail}</span>
             </button>
           ))}
         </nav>
 
         <section className="rail-card">
-          <div className="section-heading">
-            <p className="section-label">Marker Watch</p>
-            <span className="pill pill-muted">
-              {activeSnapshot.featureFlags.markerValidationMode ? 'Validation on' : 'Validation later'}
-            </span>
-          </div>
+          <SectionHeading
+            title="Watchlist"
+            detail="Signals worth tracking while marker validation is still experimental."
+          />
           <div className="mini-stat-grid">
             <FlagCard
               label="Cargo"
-              value={activeSnapshot.map.markers.some((marker) => marker.markerType === 'CargoShip') ? 'Tracked' : 'Off map'}
+              value={
+                activeSnapshot.map.markers.some((marker) => marker.markerType === 'CargoShip')
+                  ? 'Tracked'
+                  : 'Off map'
+              }
             />
             <FlagCard
               label="CH47"
@@ -548,7 +620,11 @@ function App() {
             />
             <FlagCard
               label="Patrol Heli"
-              value={activeSnapshot.map.markers.some((marker) => marker.markerType === 'PatrolHelicopter') ? 'Live' : 'No sighting'}
+              value={
+                activeSnapshot.map.markers.some((marker) => marker.markerType === 'PatrolHelicopter')
+                  ? 'Live'
+                  : 'No sighting'
+              }
             />
             <FlagCard
               label="Team Online"
@@ -559,13 +635,23 @@ function App() {
       </aside>
 
       <section className="dashboard">
+        <div className="workspace-header">
+          <div>
+            <p className="kicker">Workspace</p>
+            <h2>{activeItem.label}</h2>
+          </div>
+          <p className="workspace-detail">{activeItem.detail}</p>
+        </div>
+
         <StatusBar snapshot={activeSnapshot} state={state} error={error} onRefresh={refresh} />
 
         {section === 'overview' && (
           <OverviewPage
             snapshot={activeSnapshot}
             onExtendTimer={extendTimer}
-            onCloseOperation={() => closeOperation({ result: 'aborted', closeNote: 'Closed from dashboard prototype.' })}
+            onCloseOperation={() =>
+              closeOperation({ result: 'aborted', closeNote: 'Closed from dashboard prototype.' })
+            }
           />
         )}
         {section === 'map' && <MapViewPage snapshot={activeSnapshot} />}

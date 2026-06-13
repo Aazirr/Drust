@@ -54,6 +54,7 @@ Status: In progress
 - [x] Added the Map View and Configuration pages from the product spec.
 - [x] Fixed Railway web startup by adding a production `start` path for the web service and documented the full monorepo setup.
 - [x] Added a dedicated Discord bot service with initial slash commands for status, pairing checks, timer start, timer extension, and operation close.
+- [x] Refined the web dashboard UI to better match the tactical, fast, and reliable product tone.
 
 ## Phase 3 - Validation
 
