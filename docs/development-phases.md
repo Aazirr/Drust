@@ -1,0 +1,48 @@
+# Development Phases
+
+Last updated: 2026-06-08
+
+## Phase 0 - Discovery
+
+Status: In progress
+
+- [x] Created initial project truth-source under `/docs`.
+- [x] Captured the Rust helper product direction, current playstyle, verified game facts, candidate features, and open questions.
+- [x] Verified that the workspace initially had no `/docs` folder and no existing `development-phases.md`.
+- [x] Confirmed product shape as web dashboard plus Discord bot.
+- [x] Researched Rust+ Companion Server behavior and `liamcottle/rustplus.js`.
+- [x] Added Rust+ integration notes under `/docs`.
+- [x] Added validation target for detecting Oil Rig Chinook/CH47 through Rust+ map markers as a possible Smart Alarm replacement.
+- [x] Added detailed Rust+ capability matrix covering server info, map markers, team info, chat, smart devices, storage monitors, clans, cameras, Discord features, dashboard features, MVP scope, and hard boundaries.
+- [x] Captured selected feature scope: in-game time, full map with markers/monuments, event detection, Discord commands/pings, smart devices, and operation features.
+- [x] Moved and renamed the project to `Drust` at `C:\Users\Franz Jason Dolores\Documents\Work\Projects\Personal\Drust`.
+- [x] Recorded RustClash source preference: use `wiki.rustclash.com` for factual Rust item/entity/mechanic data instead of the main `rustclash.com` case-opening pages.
+
+## Phase 1 - Product Spec
+
+Status: Pending
+
+- [ ] Decide target platform.
+- [ ] Define Discord bot command list and ping rules.
+- [ ] Define dashboard data model and page layout.
+- [ ] Decide MVP scope.
+- [ ] Turn selected scope into a concrete MVP backlog.
+- [ ] Define exact user flows for Oil Rig, Cargo Ship, timers, alarms, and role coordination.
+- [ ] Confirm what integrations are allowed and desired.
+- [ ] Validate whether Rust+ `getMapMarkers()` reports Oil Rig Chinook/CH47 markers quickly and reliably enough to replace RF Receiver + Smart Alarm.
+
+## Phase 2 - Prototype
+
+Status: Pending
+
+- [ ] Scaffold the application.
+- [ ] Build the operation dashboard.
+- [ ] Add timers, roles, checklists, and operation notes.
+
+## Phase 3 - Validation
+
+Status: Pending
+
+- [ ] Test workflows against real wipe scenarios.
+- [ ] Tune timing presets and role checklists.
+- [ ] Add persistence and export/import if needed.
