@@ -5,10 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc -p tsconfig.json",
+    "build": "npm run build --workspace @drust/domain && tsc -p tsconfig.json",
     "start": "node dist/index.js"
   },
   "dependencies": {
+    "@drust/domain": "*",
+    "@liamcottle/rustplus.js": "^2.5.0",
     "@types/node": "^24.12.3",
     "typescript": "~6.0.2"
   },

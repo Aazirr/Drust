@@ -49,6 +49,9 @@ Status: In progress
 - [x] Add timers, roles, checklists, and operation notes.
 - [x] Added a Railway-friendly workspace with `apps/web` and `apps/worker`.
 - [x] Built the first Operations Command dashboard prototype based on the MVP product spec.
+- [x] Wired shared domain types and snapshot logic between the web app, worker, and domain package.
+- [x] Implemented the first Rust+/Discord integration path in the worker with Rust+ bridge startup, Smart Alarm ingestion, and Discord webhook delivery support.
+- [x] Added the Map View and Configuration pages from the product spec.
 
 ## Phase 3 - Validation
 

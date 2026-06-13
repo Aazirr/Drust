@@ -3,13 +3,14 @@
   "private": true,
   "version": "0.1.0",
   "workspaces": [
+    "packages/*",
     "apps/*"
   ],
   "scripts": {
     "dev:web": "npm --workspace apps/web run dev",
     "dev:worker": "npm --workspace apps/worker run dev",
-    "build": "npm run build --workspaces --if-present",
-    "lint": "npm run lint --workspaces --if-present"
+    "build": "npm run build --workspace @drust/domain && npm run build --workspace @drust/web && npm run build --workspace @drust/worker",
+    "lint": "npm run lint --workspace @drust/web --if-present"
   },
   "devDependencies": {
     "playwright": "^1.60.0"

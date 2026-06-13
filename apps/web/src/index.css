@@ -54,6 +54,7 @@ body {
 
 button {
   font: inherit;
+  cursor: pointer;
 }
 
 #root {
@@ -110,6 +111,12 @@ button {
   border-radius: var(--radius-lg);
 }
 
+.brand-block,
+.rail-card,
+.panel {
+  padding: 20px;
+}
+
 .brand-block {
   padding: 26px;
 }
@@ -127,7 +134,9 @@ button {
 .hero-panel h2,
 .alarm-card h3,
 .list-row h3,
-.timeline-row h3 {
+.timeline-row h3,
+.config-card h3,
+.map-node span {
   margin: 0;
   color: var(--text-strong);
 }
@@ -145,7 +154,8 @@ button {
 .list-row p,
 .timeline-row p,
 .note-card p,
-.check-row p {
+.check-row p,
+.config-card p {
   margin: 0;
   color: var(--text-main);
 }
@@ -179,11 +189,6 @@ button {
   background: linear-gradient(135deg, rgba(103, 216, 214, 0.16), rgba(255, 191, 105, 0.12));
   border-color: rgba(103, 216, 214, 0.34);
   color: var(--text-strong);
-}
-
-.rail-card,
-.panel {
-  padding: 20px;
 }
 
 .section-heading {
@@ -224,7 +229,8 @@ button {
   background: linear-gradient(135deg, #79f2bd, var(--good));
 }
 
-.mini-stat-grid {
+.mini-stat-grid,
+.flag-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
@@ -240,7 +246,8 @@ button {
 .mini-stat span,
 .hero-meta dt,
 .alarm-footer span,
-.timer-label {
+.timer-label,
+.config-row span {
   display: block;
   color: var(--text-muted);
   font-size: 0.78rem;
@@ -250,7 +257,8 @@ button {
 
 .mini-stat strong,
 .hero-meta dd,
-.alarm-footer strong {
+.alarm-footer strong,
+.config-row strong {
   display: block;
   margin-top: 0.45rem;
   color: var(--text-strong);
@@ -267,8 +275,9 @@ button {
   border-radius: 999px;
   padding: 10px;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
   gap: 10px;
+  align-items: stretch;
 }
 
 .status-chip {
@@ -291,6 +300,7 @@ button {
   margin-top: 0.4rem;
   color: var(--text-strong);
   font-size: 1rem;
+  text-transform: capitalize;
 }
 
 .status-chip-good {
@@ -299,6 +309,22 @@ button {
 
 .status-chip-accent {
   border-color: rgba(255, 191, 105, 0.24);
+}
+
+.refresh-button {
+  border-radius: 999px;
+  border: 1px solid rgba(255, 191, 105, 0.18);
+  background: rgba(22, 35, 48, 0.78);
+  color: var(--text-strong);
+  padding: 0 1.2rem;
+}
+
+.warning-banner {
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 159, 67, 0.28);
+  background: rgba(255, 159, 67, 0.1);
+  color: #ffdcb6;
 }
 
 .hero-panel {
@@ -355,6 +381,7 @@ button {
 
 .hero-meta dd {
   margin: 0.5rem 0 0;
+  text-transform: capitalize;
 }
 
 .timer-panel {
@@ -382,7 +409,7 @@ button {
 }
 
 .timer-actions button,
-.button-danger {
+.config-card button {
   min-height: 44px;
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -392,7 +419,9 @@ button {
   transition: transform 160ms ease, border-color 160ms ease;
 }
 
-.timer-actions button:hover {
+.timer-actions button:hover,
+.config-card button:hover,
+.refresh-button:hover {
   transform: translateY(-1px);
   border-color: rgba(255, 255, 255, 0.2);
 }
@@ -403,10 +432,16 @@ button {
   color: #ffd6d1;
 }
 
-.content-grid {
+.content-grid,
+.map-layout,
+.config-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.9fr);
   gap: 18px;
+}
+
+.config-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .main-column,
@@ -427,20 +462,24 @@ button {
 .note-card,
 .list-row,
 .check-row,
-.timeline-row {
+.timeline-row,
+.config-card,
+.config-row {
   border-radius: var(--radius-md);
   background: rgba(18, 30, 42, 0.72);
   border: 1px solid rgba(123, 156, 180, 0.14);
 }
 
-.alarm-card {
+.alarm-card,
+.config-card {
   padding: 18px;
 }
 
 .alarm-topline,
 .alarm-footer,
 .list-row,
-.timeline-row {
+.timeline-row,
+.config-card {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -457,12 +496,14 @@ button {
 
 .list-stack,
 .timeline,
-.notes-stack {
+.notes-stack,
+.config-list {
   display: grid;
   gap: 12px;
 }
 
-.list-row {
+.list-row,
+.config-row {
   padding: 15px 16px;
 }
 
@@ -505,11 +546,21 @@ button {
   color: var(--accent-teal);
   font-size: 0.82rem;
   font-weight: 700;
-  min-width: 3rem;
+  min-width: 4rem;
 }
 
 .note-card {
   padding: 16px;
+}
+
+.config-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.map-panel {
+  min-height: 620px;
 }
 
 .map-preview {
@@ -518,7 +569,7 @@ button {
 
 .map-surface {
   position: relative;
-  min-height: 210px;
+  min-height: 480px;
   overflow: hidden;
   border-radius: var(--radius-md);
   background:
@@ -527,70 +578,67 @@ button {
   border: 1px solid rgba(123, 156, 180, 0.12);
 }
 
-.ring {
+.map-surface-compact {
+  min-height: 220px;
+}
+
+.map-water {
   position: absolute;
-  border-radius: 999px;
-  border: 1px dashed rgba(255, 191, 105, 0.2);
+  inset: 0;
+  background:
+    radial-gradient(circle at 18% 24%, rgba(103, 216, 214, 0.12), transparent 18%),
+    radial-gradient(circle at 72% 45%, rgba(255, 191, 105, 0.1), transparent 14%),
+    linear-gradient(180deg, rgba(10, 26, 39, 0.88), rgba(8, 18, 28, 0.98));
 }
 
-.ring-large {
-  inset: 18% 18% auto auto;
-  width: 210px;
-  height: 210px;
-}
-
-.ring-small {
-  inset: 34% auto auto 12%;
-  width: 100px;
-  height: 100px;
-}
-
-.marker {
+.map-node {
   position: absolute;
-  width: 14px;
-  height: 14px;
+  transform: translate(-50%, -50%);
+  min-width: 14px;
+  min-height: 14px;
+  padding: 0.5rem 0.65rem;
   border-radius: 999px;
-  box-shadow: 0 0 0 8px rgba(255, 255, 255, 0.03);
+  font-size: 0.72rem;
+  border: 1px solid transparent;
 }
 
-.marker-team {
-  background: var(--accent-teal);
+.map-node span {
+  white-space: nowrap;
+  font-size: 0.72rem;
 }
 
-.marker-alert {
-  background: var(--accent-amber);
+.map-node-monument {
+  background: rgba(255, 191, 105, 0.18);
+  border-color: rgba(255, 191, 105, 0.32);
 }
 
-.marker-a {
-  top: 30%;
-  left: 26%;
+.map-node-team {
+  background: rgba(103, 216, 214, 0.18);
+  border-color: rgba(103, 216, 214, 0.3);
 }
 
-.marker-b {
-  top: 58%;
-  left: 47%;
+.map-node-alert,
+.map-node-cargo {
+  background: rgba(255, 124, 112, 0.16);
+  border-color: rgba(255, 124, 112, 0.32);
 }
 
-.marker-c {
-  top: 38%;
-  right: 28%;
+.map-node-cargo {
+  background: rgba(120, 144, 164, 0.18);
+  border-color: rgba(120, 144, 164, 0.26);
+}
+
+@media (max-width: 1280px) {
+  .content-grid,
+  .map-layout,
+  .config-grid,
+  .hero-panel {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 1100px) {
   .app-shell {
-    grid-template-columns: 1fr;
-  }
-
-  .sidebar {
-    order: 2;
-  }
-
-  .dashboard {
-    order: 1;
-  }
-
-  .content-grid,
-  .hero-panel {
     grid-template-columns: 1fr;
   }
 }
@@ -605,7 +653,9 @@ button {
   .hero-meta,
   .alarm-grid,
   .split-panel,
-  .mini-stat-grid {
+  .mini-stat-grid,
+  .flag-grid,
+  .config-grid {
     grid-template-columns: 1fr;
   }
 
@@ -613,10 +663,10 @@ button {
     border-radius: 24px;
   }
 
-  .hero-panel,
   .brand-block,
+  .rail-card,
   .panel,
-  .rail-card {
+  .hero-panel {
     padding: 18px;
   }
 
@@ -626,6 +676,10 @@ button {
 
   .hero-panel h2 {
     font-size: 2.4rem;
+  }
+
+  .map-surface {
+    min-height: 320px;
   }
 }
 
