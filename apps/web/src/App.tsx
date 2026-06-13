@@ -68,6 +68,19 @@ function formatStatusLabel(value: string): string {
   return value.replaceAll('-', ' ')
 }
 
+function formatDisplayValue(value: string | number | null | undefined): string {
+  if (value === null || value === undefined) {
+    return 'N/A'
+  }
+
+  if (typeof value === 'number') {
+    return value > 0 ? String(value) : 'N/A'
+  }
+
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : 'N/A'
+}
+
 function formatDiscordStatus(value: DashboardSnapshot['integrations']['discord']): string {
   if (value === 'bot-and-webhook') {
     return 'Bot + webhook live'
@@ -133,7 +146,7 @@ function StatusBar({
     },
     {
       label: 'Rust time',
-      value: snapshot.serverConnection.currentRustTime,
+      value: formatDisplayValue(snapshot.serverConnection.currentRustTime),
       tone: 'neutral',
     },
   ] as const
@@ -254,27 +267,35 @@ function OverviewPage({
           <div>
             <SectionHeading title="Roles" detail="Current squad assignments for this run." meta="Manual today" />
             <div className="list-stack">
-              {snapshot.roles.map((entry) => (
-                <article className="list-row" key={entry.role}>
-                  <div>
-                    <h3>{entry.role}</h3>
-                    <p>{entry.player}</p>
-                  </div>
-                  <strong>{entry.status}</strong>
-                </article>
-              ))}
+              {snapshot.roles.length > 0 ? (
+                snapshot.roles.map((entry) => (
+                  <article className="list-row" key={entry.role}>
+                    <div>
+                      <h3>{entry.role}</h3>
+                      <p>{entry.player}</p>
+                    </div>
+                    <strong>{entry.status}</strong>
+                  </article>
+                ))
+              ) : (
+                <EmptyState message="No role assignments yet." />
+              )}
             </div>
           </div>
 
           <div>
             <SectionHeading title="Checklist" detail="Fast prep items before the launch leaves." meta="Shore base" />
             <div className="list-stack">
-              {snapshot.checklist.map((entry) => (
-                <article className="check-row" key={entry.item}>
-                  <span className={`check-indicator ${entry.done ? 'check-done' : 'check-open'}`} />
-                  <p>{entry.item}</p>
-                </article>
-              ))}
+              {snapshot.checklist.length > 0 ? (
+                snapshot.checklist.map((entry) => (
+                  <article className="check-row" key={entry.item}>
+                    <span className={`check-indicator ${entry.done ? 'check-done' : 'check-open'}`} />
+                    <p>{entry.item}</p>
+                  </article>
+                ))
+              ) : (
+                <EmptyState message="No checklist items yet." />
+              )}
             </div>
           </div>
         </section>
@@ -288,15 +309,19 @@ function OverviewPage({
             meta="Live sync"
           />
           <div className="timeline">
-            {snapshot.activityLog.map((entry) => (
-              <article className="timeline-row" key={entry.eventId}>
-                <div className="timeline-stamp">
-                  <strong>{formatShortTime(entry.createdAt)}</strong>
-                  <span>{entry.type.replaceAll('-', ' ')}</span>
-                </div>
-                <p>{entry.message}</p>
-              </article>
-            ))}
+            {snapshot.activityLog.length > 0 ? (
+              snapshot.activityLog.map((entry) => (
+                <article className="timeline-row" key={entry.eventId}>
+                  <div className="timeline-stamp">
+                    <strong>{formatShortTime(entry.createdAt)}</strong>
+                    <span>{entry.type.replaceAll('-', ' ')}</span>
+                  </div>
+                  <p>{entry.message}</p>
+                </article>
+              ))
+            ) : (
+              <EmptyState message="No activity yet." />
+            )}
           </div>
         </section>
 
@@ -307,11 +332,15 @@ function OverviewPage({
             meta="Working draft"
           />
           <div className="notes-stack">
-            {snapshot.notes.map((note) => (
-              <article className="note-card" key={note}>
-                <p>{note}</p>
-              </article>
-            ))}
+            {snapshot.notes.length > 0 ? (
+              snapshot.notes.map((note) => (
+                <article className="note-card" key={note}>
+                  <p>{note}</p>
+                </article>
+              ))
+            ) : (
+              <EmptyState message="No notes yet." />
+            )}
           </div>
         </section>
 
@@ -379,15 +408,19 @@ function MapViewPage({ snapshot }: { snapshot: DashboardSnapshot }) {
             meta={`${snapshot.map.markers.length} tracked`}
           />
           <div className="list-stack">
-            {snapshot.map.markers.map((marker) => (
-              <article className="list-row" key={marker.markerId}>
-                <div>
-                  <h3>{marker.markerType}</h3>
-                  <p>{marker.targetGuess ? formatTargetLabel(marker.targetGuess) : 'Unmapped target'}</p>
-                </div>
-                <strong>{marker.isActive ? 'Live' : 'Idle'}</strong>
-              </article>
-            ))}
+            {snapshot.map.markers.length > 0 ? (
+              snapshot.map.markers.map((marker) => (
+                <article className="list-row" key={marker.markerId}>
+                  <div>
+                    <h3>{marker.markerType}</h3>
+                    <p>{marker.targetGuess ? formatTargetLabel(marker.targetGuess) : 'Unmapped target'}</p>
+                  </div>
+                  <strong>{marker.isActive ? 'Live' : 'Idle'}</strong>
+                </article>
+              ))
+            ) : (
+              <EmptyState message="No map markers yet." />
+            )}
           </div>
         </section>
 
@@ -398,15 +431,19 @@ function MapViewPage({ snapshot }: { snapshot: DashboardSnapshot }) {
             meta={`${snapshot.map.teamMembers.filter((member) => member.isOnline).length} online`}
           />
           <div className="list-stack">
-            {snapshot.map.teamMembers.map((member) => (
-              <article className="list-row" key={member.steamId}>
-                <div>
-                  <h3>{member.name}</h3>
-                  <p>{member.isAlive ? 'Alive' : 'Down'} | {formatShortTime(member.lastSeenAt)}</p>
-                </div>
-                <strong>{member.isOnline ? 'Online' : 'Offline'}</strong>
-              </article>
-            ))}
+            {snapshot.map.teamMembers.length > 0 ? (
+              snapshot.map.teamMembers.map((member) => (
+                <article className="list-row" key={member.steamId}>
+                  <div>
+                    <h3>{member.name}</h3>
+                    <p>{member.isAlive ? 'Alive' : 'Down'} | {formatShortTime(member.lastSeenAt)}</p>
+                  </div>
+                  <strong>{member.isOnline ? 'Online' : 'Offline'}</strong>
+                </article>
+              ))
+            ) : (
+              <EmptyState message="No team presence yet." />
+            )}
           </div>
         </section>
       </aside>
@@ -484,10 +521,16 @@ function ConfigViewPage({
           meta={snapshot.integrations.rustplus}
         />
         <div className="config-list">
-          <ConfigItem label="Server Name" value={snapshot.serverConnection.serverName} />
-          <ConfigItem label="Host" value={snapshot.serverConnection.host} />
-          <ConfigItem label="App Port" value={String(snapshot.serverConnection.appPort)} />
-          <ConfigItem label="Map Size" value={`${snapshot.serverConnection.mapSize}m`} />
+          <ConfigItem label="Server Name" value={formatDisplayValue(snapshot.serverConnection.serverName)} />
+          <ConfigItem label="Host" value={formatDisplayValue(snapshot.serverConnection.host)} />
+          <ConfigItem
+            label="App Port"
+            value={snapshot.serverConnection.appPort > 0 ? String(snapshot.serverConnection.appPort) : 'N/A'}
+          />
+          <ConfigItem
+            label="Map Size"
+            value={snapshot.serverConnection.mapSize > 0 ? `${snapshot.serverConnection.mapSize}m` : 'N/A'}
+          />
           <ConfigItem label="Wipe Time" value={formatShortTime(snapshot.serverConnection.wipeTime)} />
         </div>
       </section>
@@ -499,22 +542,26 @@ function ConfigViewPage({
           meta={`${snapshot.alarmBindings.length} active`}
         />
         <div className="config-list">
-          {snapshot.alarmBindings.map((binding) => (
-            <article className="config-card" key={binding.bindingId}>
-              <div>
-                <h3>{formatTargetLabel(binding.target)}</h3>
-                <p>Entity #{binding.entityId}</p>
-              </div>
-              <div className="config-card-actions">
-                <button type="button" onClick={() => void onStartSmartAlarmBinding(binding.target as 'small-oil' | 'large-oil')}>
-                  Rebind
-                </button>
-                <button type="button" onClick={() => void onTriggerAlarm(binding.target, binding.entityId)}>
-                  Fire test
-                </button>
-              </div>
-            </article>
-          ))}
+          {snapshot.alarmBindings.length > 0 ? (
+            snapshot.alarmBindings.map((binding) => (
+              <article className="config-card" key={binding.bindingId}>
+                <div>
+                  <h3>{formatTargetLabel(binding.target)}</h3>
+                  <p>Entity #{binding.entityId}</p>
+                </div>
+                <div className="config-card-actions">
+                  <button type="button" onClick={() => void onStartSmartAlarmBinding(binding.target as 'small-oil' | 'large-oil')}>
+                    Rebind
+                  </button>
+                  <button type="button" onClick={() => void onTriggerAlarm(binding.target, binding.entityId)}>
+                    Fire test
+                  </button>
+                </div>
+              </article>
+            ))
+          ) : (
+            <EmptyState message="No Smart Alarm bindings yet." />
+          )}
           <article className="config-card config-card-guide">
             <div>
               <h3>Bind next Smart Alarm</h3>
@@ -539,10 +586,10 @@ function ConfigViewPage({
           meta={snapshot.integrations.discord}
         />
         <div className="config-list">
-          <ConfigItem label="Alerts Channel" value={snapshot.discordConfig.alertsChannelId} />
-          <ConfigItem label="Operations Channel" value={snapshot.discordConfig.operationsChannelId} />
-          <ConfigItem label="System Channel" value={snapshot.discordConfig.systemChannelId} />
-          <ConfigItem label="Operations Role" value={snapshot.discordConfig.operationsRoleId} />
+          <ConfigItem label="Alerts Channel" value={formatDisplayValue(snapshot.discordConfig.alertsChannelId)} />
+          <ConfigItem label="Operations Channel" value={formatDisplayValue(snapshot.discordConfig.operationsChannelId)} />
+          <ConfigItem label="System Channel" value={formatDisplayValue(snapshot.discordConfig.systemChannelId)} />
+          <ConfigItem label="Operations Role" value={formatDisplayValue(snapshot.discordConfig.operationsRoleId)} />
           <ConfigItem label="Integration Status" value={formatDiscordStatus(snapshot.integrations.discord)} />
         </div>
       </section>
@@ -579,6 +626,10 @@ function ConfigItem({ label, value }: { label: string; value: string }) {
       <strong>{value}</strong>
     </article>
   )
+}
+
+function EmptyState({ message }: { message: string }) {
+  return <article className="empty-state">{message}</article>
 }
 
 function FlagCard({ label, value }: { label: string; value: string }) {
@@ -632,6 +683,9 @@ function MapCanvas({
           <span>{marker.markerType}</span>
         </div>
       ))}
+      {monuments.length === 0 && markers.length === 0 && teamMembers.length === 0 ? (
+        <div className="map-empty">No live map data yet.</div>
+      ) : null}
       <div className="map-legend">
         <span>Monuments</span>
         <span>Team</span>

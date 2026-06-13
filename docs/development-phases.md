@@ -60,6 +60,7 @@ Status: In progress
 - [x] Fixed Rust+ pairing payload handling so the helper can parse key/value push payloads and embedded server JSON from live Pair with Server notifications.
 - [x] Added a Smart Alarm binding helper flow so Small Oil and Large Oil entity IDs can be captured from live Rust+ device pairing notifications and imported into the worker.
 - [x] Expanded Discord integration status so the web app can distinguish webhook-only, bot-only, and bot-plus-webhook deployments.
+- [x] Removed dummy fallback dashboard data so empty and unconfigured states now render as `N/A` or explicit empty states instead of believable placeholder activity.
 
 ## Phase 3 - Validation
 
