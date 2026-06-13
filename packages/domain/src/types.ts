@@ -144,6 +144,15 @@ export interface AlarmTriggerInput {
   triggeredAt?: string
 }
 
+export interface StartOperationInput {
+  target: OperationTarget
+  minutes: number
+  source?: OperationSource
+  entityId?: string
+  markerId?: string
+  startedAt?: string
+}
+
 export interface OperationCloseInput {
   result: OperationResult
   closeNote?: string

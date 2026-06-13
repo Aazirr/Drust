@@ -1,0 +1,20 @@
+{
+  "name": "@drust/bot",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "npm run build --workspace @drust/domain && tsc -p tsconfig.json",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@drust/domain": "*",
+    "@types/node": "^24.12.3",
+    "discord.js": "^14.25.1",
+    "typescript": "~6.0.2"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.6"
+  }
+}

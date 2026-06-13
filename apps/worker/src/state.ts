@@ -4,11 +4,13 @@ import {
   extendActiveOperation,
   formatDiscordAlarmMessage,
   recordDiscordDelivery,
+  startOperation,
   startOperationFromAlarm,
   withDerivedSnapshot,
   type AlarmTriggerInput,
   type DashboardSnapshot,
   type OperationCloseInput,
+  type StartOperationInput,
 } from '@drust/domain'
 
 export class WorkerState {
@@ -61,6 +63,11 @@ export class WorkerState {
 
   triggerSmartAlarm(input: AlarmTriggerInput): DashboardSnapshot {
     this.snapshot = startOperationFromAlarm(this.snapshot, input)
+    return this.getSnapshot()
+  }
+
+  startOperation(input: StartOperationInput): DashboardSnapshot {
+    this.snapshot = startOperation(this.snapshot, input)
     return this.getSnapshot()
   }
 

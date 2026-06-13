@@ -6,6 +6,7 @@ import type {
   DashboardSnapshot,
   Operation,
   OperationCloseInput,
+  StartOperationInput,
   OperationTarget,
 } from './types.js'
 
@@ -94,6 +95,57 @@ export function startOperationFromAlarm(
       alarmBindings: updateBinding(snapshot.alarmBindings, input, triggeredAt),
       activityLog,
       updatedAt: triggeredAt,
+    },
+    now,
+  )
+}
+
+export function startOperation(
+  snapshot: DashboardSnapshot,
+  input: StartOperationInput,
+  now = new Date(),
+): DashboardSnapshot {
+  const startedAt = input.startedAt ?? now.toISOString()
+  const source = input.source ?? 'manual'
+  const minutes = Math.max(1, input.minutes)
+  const endsAt = new Date(new Date(startedAt).getTime() + minutes * 60 * 1000).toISOString()
+  const labels: Record<OperationTarget, string> = {
+    'small-oil': 'Small Oil',
+    'large-oil': 'Large Oil',
+    cargo: 'Cargo',
+  }
+
+  const activeOperation: Operation = {
+    operationId: createId(`op-${input.target}`, startedAt),
+    target: input.target,
+    source,
+    status: 'active',
+    startedAt,
+    endsAt,
+    remainingSeconds: minutes * 60,
+    triggerEntityId: input.entityId ?? null,
+    triggerMarkerId: input.markerId ?? null,
+    result: null,
+    closeNote: null,
+  }
+
+  const activityLog = [
+    createActivity(
+      'operation-started',
+      `${labels[input.target]} timer started for ${minutes} minute${minutes === 1 ? '' : 's'}.`,
+      input.target,
+      source,
+      startedAt,
+    ),
+    ...snapshot.activityLog,
+  ].slice(0, 18)
+
+  return withDerivedSnapshot(
+    {
+      ...snapshot,
+      activeOperation,
+      activityLog,
+      updatedAt: startedAt,
     },
     now,
   )

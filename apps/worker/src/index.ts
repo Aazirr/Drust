@@ -3,7 +3,7 @@ import { getConfig } from './config.js'
 import { DiscordNotifier } from './discord.js'
 import { startRustplusBridge } from './rustplus.js'
 import { WorkerState } from './state.js'
-import type { AlarmTriggerInput, OperationCloseInput } from '@drust/domain'
+import type { AlarmTriggerInput, OperationCloseInput, StartOperationInput } from '@drust/domain'
 
 const config = getConfig()
 const state = new WorkerState()
@@ -68,10 +68,37 @@ const server = createServer(async (request: IncomingMessage, response: ServerRes
     return
   }
 
+  if (request.method === 'GET' && requestUrl.pathname === '/api/pairing-status') {
+    writeJson(response, 200, {
+      rustplus: {
+        configured: Boolean(
+          config.rustplus.serverIp &&
+            config.rustplus.appPort &&
+            config.rustplus.playerId &&
+            config.rustplus.playerToken,
+        ),
+        smartAlarmsConfigured: Boolean(
+          config.rustplus.smallOilEntityId && config.rustplus.largeOilEntityId,
+        ),
+        connectionStatus: state.getSnapshot().serverConnection.connectionStatus,
+      },
+      discord: {
+        webhookConfigured: discord.enabled,
+      },
+    })
+    return
+  }
+
   if (request.method === 'POST' && requestUrl.pathname === '/api/events/smart-alarm') {
     const payload = await readJson<AlarmTriggerInput>(request)
     await handleAlarmTriggered(payload)
     writeJson(response, 200, state.getSnapshot())
+    return
+  }
+
+  if (request.method === 'POST' && requestUrl.pathname === '/api/actions/start-operation') {
+    const payload = await readJson<StartOperationInput>(request)
+    writeJson(response, 200, state.startOperation(payload))
     return
   }
 
