@@ -52,6 +52,7 @@ Status: In progress
 - [x] Wired shared domain types and snapshot logic between the web app, worker, and domain package.
 - [x] Implemented the first Rust+/Discord integration path in the worker with Rust+ bridge startup, Smart Alarm ingestion, and Discord webhook delivery support.
 - [x] Added the Map View and Configuration pages from the product spec.
+- [x] Fixed Railway web startup by adding a production `start` path for the web service and documented the full monorepo setup.
 
 ## Phase 3 - Validation
 

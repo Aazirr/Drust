@@ -329,7 +329,7 @@ function MapViewPage({ snapshot }: { snapshot: DashboardSnapshot }) {
               <article className="list-row" key={member.steamId}>
                 <div>
                   <h3>{member.name}</h3>
-                  <p>{member.isAlive ? 'Alive' : 'Down'} • {formatShortTime(member.lastSeenAt)}</p>
+                  <p>{member.isAlive ? 'Alive' : 'Down'} | {formatShortTime(member.lastSeenAt)}</p>
                 </div>
                 <strong>{member.isOnline ? 'Online' : 'Offline'}</strong>
               </article>

@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "npm run build --workspace @drust/domain && tsc -b && vite build",
     "lint": "eslint .",
+    "start": "node server.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
