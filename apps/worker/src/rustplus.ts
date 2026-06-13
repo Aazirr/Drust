@@ -1,132 +1,234 @@
-import type { AlarmTriggerInput } from '@drust/domain'
+import type { AlarmTriggerInput, RustplusServerPairing } from '@drust/domain'
 import type { WorkerConfig } from './config.js'
 import { WorkerState } from './state.js'
 
 type RustPlusLike = {
   on: (event: string, handler: (...args: any[]) => void) => void
   connect: () => void
+  disconnect: () => void
   getEntityInfo: (entityId: string, callback?: (message: unknown) => void) => void
   getInfo: (callback?: (message: any) => void) => void
   getTime: (callback?: (message: any) => void) => void
 }
 
-function isRustplusConfigured(config: WorkerConfig): boolean {
-  return Boolean(
-    config.rustplus.serverIp &&
-      config.rustplus.appPort &&
-      config.rustplus.playerId &&
-      config.rustplus.playerToken,
-  )
+export interface RustplusConnectionInput {
+  serverIp: string
+  appPort: number
+  playerId: string
+  playerToken: string
+  smallOilEntityId: string | null
+  largeOilEntityId: string | null
 }
 
-export async function startRustplusBridge(
-  config: WorkerConfig,
-  state: WorkerState,
-  onAlarmTriggered: (input: AlarmTriggerInput) => Promise<void>,
-): Promise<void> {
-  if (!isRustplusConfigured(config)) {
-    state.setRustplusMode('mock')
-    return
+function isRustplusConfigured(config: {
+  serverIp: string | null
+  appPort: number | null
+  playerId: string | null
+  playerToken: string | null
+}): config is {
+  serverIp: string
+  appPort: number
+  playerId: string
+  playerToken: string
+} {
+  return Boolean(config.serverIp && config.appPort && config.playerId && config.playerToken)
+}
+
+function createConnectionInputFromWorkerConfig(config: WorkerConfig): RustplusConnectionInput | null {
+  if (!isRustplusConfigured(config.rustplus)) {
+    return null
   }
 
-  const module = await import('@liamcottle/rustplus.js')
-  const RustPlus = (module.default ?? module) as new (
-    serverIp: string,
-    appPort: number,
-    playerId: string,
-    playerToken: string,
-  ) => RustPlusLike
+  return {
+    serverIp: config.rustplus.serverIp,
+    appPort: config.rustplus.appPort,
+    playerId: config.rustplus.playerId,
+    playerToken: config.rustplus.playerToken,
+    smallOilEntityId: config.rustplus.smallOilEntityId,
+    largeOilEntityId: config.rustplus.largeOilEntityId,
+  }
+}
 
-  const client = new RustPlus(
-    config.rustplus.serverIp as string,
-    config.rustplus.appPort as number,
-    config.rustplus.playerId as string,
-    config.rustplus.playerToken as string,
-  )
+export function createConnectionInputFromPairing(
+  pairing: RustplusServerPairing,
+  config: WorkerConfig,
+): RustplusConnectionInput {
+  return {
+    serverIp: pairing.serverIp,
+    appPort: pairing.appPort,
+    playerId: pairing.playerId,
+    playerToken: pairing.playerToken,
+    smallOilEntityId: config.rustplus.smallOilEntityId,
+    largeOilEntityId: config.rustplus.largeOilEntityId,
+  }
+}
 
-  client.on('connecting', () => {
-    state.updateServerConnection({ connectionStatus: 'connecting' })
-  })
+export class RustplusBridgeManager {
+  private client: RustPlusLike | null = null
+  private sessionId = 0
 
-  client.on('connected', () => {
-    state.setRustplusMode('connected')
-    client.getInfo((message: any) => {
-      const info = message?.response?.info
-      if (!info) {
-        return
-      }
+  constructor(
+    private readonly state: WorkerState,
+    private readonly onAlarmTriggered: (input: AlarmTriggerInput) => Promise<void>,
+  ) {}
 
-      state.updateServerConnection({
-        serverName: info.name ?? state.getSnapshot().serverConnection.serverName,
-        mapSize: info.mapSize ?? state.getSnapshot().serverConnection.mapSize,
-        wipeTime: info.wipeTime ? new Date(info.wipeTime * 1000).toISOString() : state.getSnapshot().serverConnection.wipeTime,
-        lastHeartbeatAt: new Date().toISOString(),
-        lastError: null,
-      })
-    })
-
-    client.getTime((message: any) => {
-      const time = message?.response?.time
-      if (!time) {
-        return
-      }
-
-      state.updateServerConnection({
-        currentRustTime: `${Number(time.time).toFixed(2)} Rust`,
-        lastHeartbeatAt: new Date().toISOString(),
-      })
-    })
-
-    const entityIds = [config.rustplus.smallOilEntityId, config.rustplus.largeOilEntityId].filter(
-      Boolean,
-    ) as string[]
-
-    entityIds.forEach((entityId) => {
-      client.getEntityInfo(entityId)
-    })
-  })
-
-  client.on('disconnected', () => {
-    state.updateServerConnection({
-      connectionStatus: 'disconnected',
-      lastError: 'Rust+ disconnected.',
-      lastHeartbeatAt: new Date().toISOString(),
-    })
-  })
-
-  client.on('error', (error: Error) => {
-    state.updateServerConnection({
-      connectionStatus: 'degraded',
-      lastError: error.message,
-      lastHeartbeatAt: new Date().toISOString(),
-    })
-  })
-
-  client.on('message', async (message: any) => {
-    const entityChanged = message?.broadcast?.entityChanged
-    if (!entityChanged || !entityChanged.payload?.value) {
+  async startFromConfig(config: WorkerConfig): Promise<void> {
+    const connection = createConnectionInputFromWorkerConfig(config)
+    if (!connection) {
+      this.state.setRustplusMode('mock')
       return
     }
 
-    const entityId = String(entityChanged.entityId)
-    const target =
-      entityId === config.rustplus.smallOilEntityId
-        ? 'small-oil'
-        : entityId === config.rustplus.largeOilEntityId
-          ? 'large-oil'
-          : null
+    await this.connect(connection)
+  }
 
-    if (!target) {
+  async importPairing(pairing: RustplusServerPairing, config: WorkerConfig): Promise<void> {
+    const connection = createConnectionInputFromPairing(pairing, config)
+    await this.connect(connection)
+  }
+
+  private async connect(connection: RustplusConnectionInput): Promise<void> {
+    const currentSession = ++this.sessionId
+    this.disconnectCurrentClient()
+
+    const module = await import('@liamcottle/rustplus.js')
+    const RustPlus = (module.default ?? module) as new (
+      serverIp: string,
+      appPort: number,
+      playerId: string,
+      playerToken: string,
+    ) => RustPlusLike
+
+    const client = new RustPlus(
+      connection.serverIp,
+      connection.appPort,
+      connection.playerId,
+      connection.playerToken,
+    )
+
+    this.client = client
+
+    client.on('connecting', () => {
+      if (currentSession !== this.sessionId) {
+        return
+      }
+
+      this.state.updateServerConnection({ connectionStatus: 'connecting' })
+    })
+
+    client.on('connected', () => {
+      if (currentSession !== this.sessionId) {
+        return
+      }
+
+      this.state.setRustplusMode('connected')
+      client.getInfo((message: any) => {
+        if (currentSession !== this.sessionId) {
+          return
+        }
+
+        const info = message?.response?.info
+        if (!info) {
+          return
+        }
+
+        this.state.updateServerConnection({
+          serverName: info.name ?? this.state.getSnapshot().serverConnection.serverName,
+          mapSize: info.mapSize ?? this.state.getSnapshot().serverConnection.mapSize,
+          wipeTime: info.wipeTime
+            ? new Date(info.wipeTime * 1000).toISOString()
+            : this.state.getSnapshot().serverConnection.wipeTime,
+          lastHeartbeatAt: new Date().toISOString(),
+          lastError: null,
+        })
+      })
+
+      client.getTime((message: any) => {
+        if (currentSession !== this.sessionId) {
+          return
+        }
+
+        const time = message?.response?.time
+        if (!time) {
+          return
+        }
+
+        this.state.updateServerConnection({
+          currentRustTime: `${Number(time.time).toFixed(2)} Rust`,
+          lastHeartbeatAt: new Date().toISOString(),
+        })
+      })
+
+      const entityIds = [connection.smallOilEntityId, connection.largeOilEntityId].filter(Boolean) as string[]
+
+      entityIds.forEach((entityId) => {
+        client.getEntityInfo(entityId)
+      })
+    })
+
+    client.on('disconnected', () => {
+      if (currentSession !== this.sessionId) {
+        return
+      }
+
+      this.state.updateServerConnection({
+        connectionStatus: 'disconnected',
+        lastError: 'Rust+ disconnected.',
+        lastHeartbeatAt: new Date().toISOString(),
+      })
+    })
+
+    client.on('error', (error: Error) => {
+      if (currentSession !== this.sessionId) {
+        return
+      }
+
+      this.state.updateServerConnection({
+        connectionStatus: 'degraded',
+        lastError: error.message,
+        lastHeartbeatAt: new Date().toISOString(),
+      })
+    })
+
+    client.on('message', async (message: any) => {
+      if (currentSession !== this.sessionId) {
+        return
+      }
+
+      const entityChanged = message?.broadcast?.entityChanged
+      if (!entityChanged || !entityChanged.payload?.value) {
+        return
+      }
+
+      const entityId = String(entityChanged.entityId)
+      const target =
+        entityId === connection.smallOilEntityId
+          ? 'small-oil'
+          : entityId === connection.largeOilEntityId
+            ? 'large-oil'
+            : null
+
+      if (!target) {
+        return
+      }
+
+      await this.onAlarmTriggered({
+        target,
+        entityId,
+        source: 'smart-alarm',
+        triggeredAt: new Date().toISOString(),
+      })
+    })
+
+    client.connect()
+  }
+
+  private disconnectCurrentClient(): void {
+    if (!this.client) {
       return
     }
 
-    await onAlarmTriggered({
-      target,
-      entityId,
-      source: 'smart-alarm',
-      triggeredAt: new Date().toISOString(),
-    })
-  })
-
-  client.connect()
+    this.client.disconnect()
+    this.client = null
+  }
 }

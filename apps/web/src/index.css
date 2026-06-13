@@ -517,6 +517,10 @@ button {
   gap: 18px;
 }
 
+.config-grid-span {
+  grid-column: 1 / -1;
+}
+
 .main-column,
 .side-column {
   display: flex;
@@ -552,6 +556,7 @@ button {
 .check-row,
 .timeline-row,
 .note-card,
+.pairing-step,
 .config-card,
 .config-row {
   border-radius: var(--radius-item);
@@ -562,8 +567,93 @@ button {
 .mini-stat,
 .alarm-card,
 .config-card,
-.note-card {
+.note-card,
+.pairing-step {
   padding: 15px;
+}
+
+.pairing-panel,
+.pairing-copy,
+.pairing-actions,
+.pairing-steps {
+  display: grid;
+  gap: 14px;
+}
+
+.pairing-panel {
+  grid-template-columns: minmax(0, 1.1fr) 240px;
+  align-items: start;
+}
+
+.pairing-copy h3,
+.pairing-step strong {
+  margin: 0;
+  color: var(--text);
+}
+
+.pairing-copy p,
+.pairing-meta,
+.pairing-step p {
+  margin: 0;
+  color: var(--text-soft);
+}
+
+.pairing-imported {
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.pairing-imported strong {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text);
+}
+
+.pairing-imported p {
+  margin: 0;
+  color: var(--text-soft);
+}
+
+.pairing-command {
+  display: block;
+  padding: 12px 14px;
+  border-radius: var(--radius-item);
+  background: rgba(7, 13, 17, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--accent-strong);
+  font-family: var(--font-data);
+  font-size: 0.84rem;
+  overflow-wrap: anywhere;
+}
+
+.pairing-actions button {
+  min-height: 42px;
+  border-radius: 10px;
+  padding: 0 14px;
+  border: 1px solid var(--line-strong);
+  background: #15242d;
+  color: var(--text);
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background-color 180ms ease;
+}
+
+.pairing-actions button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(217, 163, 95, 0.44);
+  background: #1a2c37;
+}
+
+.pairing-meta {
+  font-size: 0.84rem;
+}
+
+.pairing-step {
+  display: grid;
+  grid-template-columns: 16px 1fr;
+  gap: 12px;
+  align-items: start;
 }
 
 .mini-stat strong {
@@ -770,6 +860,10 @@ button {
 
   .workspace-detail {
     text-align: left;
+  }
+
+  .pairing-panel {
+    grid-template-columns: 1fr;
   }
 
   .status-grid,

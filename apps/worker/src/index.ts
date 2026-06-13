@@ -1,15 +1,34 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { getConfig } from './config.js'
 import { DiscordNotifier } from './discord.js'
-import { startRustplusBridge } from './rustplus.js'
+import { RustplusBridgeManager } from './rustplus.js'
 import { WorkerState } from './state.js'
-import type { AlarmTriggerInput, OperationCloseInput, StartOperationInput } from '@drust/domain'
+import type {
+  AlarmTriggerInput,
+  OperationCloseInput,
+  RustplusServerPairing,
+  StartOperationInput,
+} from '@drust/domain'
 
 const config = getConfig()
 const state = new WorkerState()
 const discord = new DiscordNotifier(config.discordWebhookUrl)
+const rustplusBridge = new RustplusBridgeManager(state, handleAlarmTriggered)
+const rustplusCredentialsConfigured = Boolean(
+  config.rustplus.serverIp &&
+    config.rustplus.appPort &&
+    config.rustplus.playerId &&
+    config.rustplus.playerToken,
+)
+const smartAlarmIdsConfigured = Boolean(
+  config.rustplus.smallOilEntityId && config.rustplus.largeOilEntityId,
+)
 
 state.setDiscordMode(discord.enabled ? 'webhook' : 'disabled')
+state.syncRustplusPairingFromConfig({
+  credentialsConfigured: rustplusCredentialsConfigured,
+  smartAlarmsConfigured: smartAlarmIdsConfigured,
+})
 
 function writeJson(response: ServerResponse, statusCode: number, payload: unknown): void {
   response.writeHead(statusCode, {
@@ -69,18 +88,15 @@ const server = createServer(async (request: IncomingMessage, response: ServerRes
   }
 
   if (request.method === 'GET' && requestUrl.pathname === '/api/pairing-status') {
+    const snapshot = state.getSnapshot()
+    const importedPairing = snapshot.rustplusPairing.lastImportedPairing
+
     writeJson(response, 200, {
       rustplus: {
-        configured: Boolean(
-          config.rustplus.serverIp &&
-            config.rustplus.appPort &&
-            config.rustplus.playerId &&
-            config.rustplus.playerToken,
-        ),
-        smartAlarmsConfigured: Boolean(
-          config.rustplus.smallOilEntityId && config.rustplus.largeOilEntityId,
-        ),
-        connectionStatus: state.getSnapshot().serverConnection.connectionStatus,
+        configured: rustplusCredentialsConfigured || Boolean(importedPairing),
+        smartAlarmsConfigured: smartAlarmIdsConfigured,
+        connectionStatus: snapshot.serverConnection.connectionStatus,
+        pairingMode: snapshot.rustplusPairing.mode,
       },
       discord: {
         webhookConfigured: discord.enabled,
@@ -93,6 +109,30 @@ const server = createServer(async (request: IncomingMessage, response: ServerRes
     const payload = await readJson<AlarmTriggerInput>(request)
     await handleAlarmTriggered(payload)
     writeJson(response, 200, state.getSnapshot())
+    return
+  }
+
+  if (request.method === 'POST' && requestUrl.pathname === '/api/rustplus/pairing/start') {
+    writeJson(response, 200, state.startRustplusPairingGuide())
+    return
+  }
+
+  if (request.method === 'POST' && requestUrl.pathname === '/api/rustplus/pairing/import') {
+    const payload = await readJson<RustplusServerPairing>(request)
+    const nextSnapshot = state.applyRustplusPairingImport(payload)
+
+    try {
+      await rustplusBridge.importPairing(payload, config)
+      writeJson(response, 200, state.getSnapshot())
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown Rust+ import error.'
+      state.updateServerConnection({
+        connectionStatus: 'degraded',
+        lastError: message,
+        lastHeartbeatAt: new Date().toISOString(),
+      })
+      writeJson(response, 200, nextSnapshot)
+    }
     return
   }
 
@@ -123,7 +163,7 @@ server.listen(config.port, async () => {
   console.log(`[drust-worker] listening on http://localhost:${config.port}`)
 
   try {
-    await startRustplusBridge(config, state, handleAlarmTriggered)
+    await rustplusBridge.startFromConfig(config)
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown Rust+ startup error.'
     state.updateServerConnection({

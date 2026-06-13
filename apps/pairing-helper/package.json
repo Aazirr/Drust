@@ -1,0 +1,21 @@
+{
+  "name": "@drust/pairing-helper",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "npm run build --workspace @drust/domain && tsc -p tsconfig.json",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@drust/domain": "*",
+    "@liamcottle/push-receiver": "^0.0.3",
+    "@liamcottle/rustplus.js": "^2.5.0",
+    "@types/node": "^24.12.3",
+    "typescript": "~6.0.2"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.6"
+  }
+}

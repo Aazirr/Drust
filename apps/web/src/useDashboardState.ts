@@ -131,6 +131,26 @@ export function useDashboardState() {
     }
   }
 
+  async function startRustplusPairing(): Promise<void> {
+    try {
+      const nextSnapshot = await postJson<Record<string, never>, DashboardSnapshot>(
+        '/api/rustplus/pairing/start',
+        {},
+      )
+      startTransition(() => {
+        setSnapshot(withDerivedSnapshot(nextSnapshot))
+        setState('ready')
+        setError(null)
+      })
+    } catch (nextError) {
+      const message = nextError instanceof Error ? nextError.message : 'Unable to start Rust+ pairing.'
+      startTransition(() => {
+        setState('offline')
+        setError(message)
+      })
+    }
+  }
+
   return {
     snapshot: withDerivedSnapshot(snapshot),
     state,
@@ -139,5 +159,6 @@ export function useDashboardState() {
     triggerAlarm,
     extendTimer,
     closeOperation,
+    startRustplusPairing,
   }
 }

@@ -9,6 +9,7 @@ import type {
   MarkerEvent,
   Monument,
   RoleAssignment,
+  RustplusPairingGuide,
   TeamMember,
 } from './types.js'
 
@@ -177,6 +178,35 @@ const featureFlags: FeatureFlags = {
   countdownPings: true,
 }
 
+const rustplusPairing: RustplusPairingGuide = {
+  status: 'idle',
+  sessionId: null,
+  startedAt: null,
+  mode: 'guided',
+  headline: 'Connect Rust+ without pasting raw credentials',
+  detail:
+    'Start a guided pairing session, then use a trusted desktop helper to listen for the Pair with Server notification while you pair in game.',
+  helperCommand: 'npx @liamcottle/rustplus.js fcm-register',
+  steps: [
+    {
+      label: 'Start listener flow',
+      detail: 'Launch the Rust+ helper on a trusted desktop and sign in with the Steam account you use in Rust+.',
+      done: false,
+    },
+    {
+      label: 'Pair with Server in Rust',
+      detail: 'Open Rust, connect to the target server, and click Pair with Server from the Rust+ menu.',
+      done: false,
+    },
+    {
+      label: 'Capture Smart Alarm IDs later',
+      detail: 'After server pairing is stable, pair the Small Oil and Large Oil Smart Alarms to capture entity IDs.',
+      done: false,
+    },
+  ],
+  lastImportedPairing: null,
+}
+
 const map: MapSnapshot = {
   imageUrl: null,
   monuments,
@@ -219,6 +249,7 @@ export function createDemoSnapshot(now = new Date()): DashboardSnapshot {
     checklist,
     notes,
     featureFlags,
+    rustplusPairing,
     integrations: {
       rustplus: 'mock',
       discord: 'disabled',

@@ -117,6 +117,39 @@ export interface FeatureFlags {
   countdownPings: boolean
 }
 
+export type RustplusPairingStatus = 'idle' | 'awaiting-server-pair' | 'configured'
+export type RustplusPairingMode = 'guided' | 'railway-env' | 'helper-import'
+
+export interface RustplusPairingStep {
+  label: string
+  detail: string
+  done: boolean
+}
+
+export interface RustplusServerPairing {
+  source: 'local-helper'
+  receivedAt: string
+  serverName: string
+  serverDescription: string | null
+  serverUrl: string | null
+  serverIp: string
+  appPort: number
+  playerId: string
+  playerToken: string
+}
+
+export interface RustplusPairingGuide {
+  status: RustplusPairingStatus
+  sessionId: string | null
+  startedAt: string | null
+  mode: RustplusPairingMode
+  headline: string
+  detail: string
+  helperCommand: string | null
+  steps: RustplusPairingStep[]
+  lastImportedPairing: RustplusServerPairing | null
+}
+
 export interface IntegrationStatus {
   rustplus: 'mock' | 'connected' | 'disabled'
   discord: 'webhook' | 'disabled'
@@ -133,6 +166,7 @@ export interface DashboardSnapshot {
   checklist: ChecklistItem[]
   notes: string[]
   featureFlags: FeatureFlags
+  rustplusPairing: RustplusPairingGuide
   integrations: IntegrationStatus
   updatedAt: string
 }

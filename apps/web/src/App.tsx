@@ -401,12 +401,64 @@ function MapViewPage({ snapshot }: { snapshot: DashboardSnapshot }) {
 function ConfigViewPage({
   snapshot,
   onTriggerAlarm,
+  onStartRustplusPairing,
 }: {
   snapshot: DashboardSnapshot
   onTriggerAlarm: (target: OperationTarget, entityId: string) => Promise<void>
+  onStartRustplusPairing: () => Promise<void>
 }) {
   return (
     <section className="config-grid">
+      <section className="panel config-grid-span">
+        <SectionHeading
+          title="Rust+ pairing"
+          detail="Start the guided pairing runbook instead of hand-typing server credentials into Railway."
+          meta={snapshot.rustplusPairing.status.replaceAll('-', ' ')}
+        />
+        <div className="pairing-panel">
+          <div className="pairing-copy">
+            <h3>{snapshot.rustplusPairing.headline}</h3>
+            <p>{snapshot.rustplusPairing.detail}</p>
+            {snapshot.rustplusPairing.helperCommand ? (
+              <code className="pairing-command">{snapshot.rustplusPairing.helperCommand}</code>
+            ) : null}
+          </div>
+          <div className="pairing-actions">
+            <button type="button" onClick={() => void onStartRustplusPairing()}>
+              {snapshot.rustplusPairing.status === 'awaiting-server-pair'
+                ? 'Restart pairing guide'
+                : 'Connect Rust+'}
+            </button>
+            {snapshot.rustplusPairing.startedAt ? (
+              <p className="pairing-meta">Started {formatLongTime(snapshot.rustplusPairing.startedAt)}</p>
+            ) : (
+              <p className="pairing-meta">No guided session started yet.</p>
+            )}
+          </div>
+          <div className="pairing-steps">
+            {snapshot.rustplusPairing.steps.map((step) => (
+              <article className="pairing-step" key={step.label}>
+                <span className={`check-indicator ${step.done ? 'check-done' : 'check-open'}`} />
+                <div>
+                  <strong>{step.label}</strong>
+                  <p>{step.detail}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+          {snapshot.rustplusPairing.lastImportedPairing ? (
+            <div className="pairing-imported">
+              <strong>Latest imported pairing</strong>
+              <p>
+                {snapshot.rustplusPairing.lastImportedPairing.serverName} via{' '}
+                {snapshot.rustplusPairing.lastImportedPairing.serverIp}:
+                {snapshot.rustplusPairing.lastImportedPairing.appPort}
+              </p>
+            </div>
+          ) : null}
+        </div>
+      </section>
+
       <section className="panel">
         <SectionHeading
           title="Rust+ connection"
@@ -552,7 +604,7 @@ function MapCanvas({
 }
 
 function App() {
-  const { snapshot, state, error, refresh, triggerAlarm, extendTimer, closeOperation } =
+  const { snapshot, state, error, refresh, triggerAlarm, extendTimer, closeOperation, startRustplusPairing } =
     useDashboardState()
   const [section, setSection] = useState<AppSection>('overview')
   const deferredSnapshot = useDeferredValue(snapshot)
@@ -656,7 +708,11 @@ function App() {
         )}
         {section === 'map' && <MapViewPage snapshot={activeSnapshot} />}
         {section === 'config' && (
-          <ConfigViewPage snapshot={activeSnapshot} onTriggerAlarm={handleTriggerAlarm} />
+          <ConfigViewPage
+            snapshot={activeSnapshot}
+            onTriggerAlarm={handleTriggerAlarm}
+            onStartRustplusPairing={startRustplusPairing}
+          />
         )}
       </section>
     </main>

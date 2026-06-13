@@ -55,6 +55,8 @@ Status: In progress
 - [x] Fixed Railway web startup by adding a production `start` path for the web service and documented the full monorepo setup.
 - [x] Added a dedicated Discord bot service with initial slash commands for status, pairing checks, timer start, timer extension, and operation close.
 - [x] Refined the web dashboard UI to better match the tactical, fast, and reliable product tone.
+- [x] Added guided Rust+ pairing state in the dashboard and worker so Drust can show the pairing runbook instead of only static env status.
+- [x] Built a local Drust Rust+ pairing helper that captures Pair with Server notifications and imports runtime Rust+ credentials into the worker.
 
 ## Phase 3 - Validation
 
