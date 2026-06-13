@@ -30,8 +30,11 @@ Status: Pending
 - [x] Not target platforms for MVP: native mobile app, Electron desktop app, and in-game overlay.
 - [ ] Define Discord bot command list and ping rules.
 - [ ] Define dashboard data model and page layout.
-- [ ] Decide MVP scope.
-- [ ] Turn selected scope into a concrete MVP backlog.
+- [x] Decide MVP scope.
+- [x] Turn selected scope into a concrete MVP backlog.
+- [x] MVP 1: connect Rust+ API -> web app -> Discord bot, with Railway as the deployment target.
+- [x] MVP 2: operation feature where Oil Rig is triggered, Rust+ notifies, Discord bot pings, and a 15-minute timer starts.
+- [x] MVP 3: auto-detect Oil Rig trigger by detecting a CH47/Chinook marker at either Oil Rig.
 - [ ] Define exact user flows for Oil Rig, Cargo Ship, timers, alarms, and role coordination.
 - [ ] Confirm what integrations are allowed and desired.
 - [ ] Validate whether Rust+ `getMapMarkers()` reports Oil Rig Chinook/CH47 markers quickly and reliably enough to replace RF Receiver + Smart Alarm.

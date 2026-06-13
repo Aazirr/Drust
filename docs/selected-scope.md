@@ -13,6 +13,24 @@ Web dashboard plus Discord bot for Rust operation coordination.
 - Important actions happen through the Discord bot and in-game chat.
 - MVP does not target a native mobile app, Electron desktop app, or in-game overlay.
 
+## Deployment Direction
+
+- Deploy the MVP stack on Railway.
+- Treat the product as a web app plus Discord bot system backed by Rust+ connectivity.
+
+## MVP Sequence
+
+- MVP 1: connect Rust+ API -> web app -> Discord bot.
+- MVP 2: operation flow where Oil Rig is triggered, Rust+ notifies, Discord bot pings, and a 15-minute timer starts.
+- MVP 3: auto-detect Oil Rig trigger by detecting a CH47/Chinook marker at either Small Oil or Large Oil.
+
+## Service Shape
+
+- Minimum logical components are Rust+ integration, web app, and Discord bot.
+- Recommended initial deployment is two Railway services: web app service plus bot/worker service.
+- A smaller alternative is one Railway service that contains both the web app backend and Discord bot worker logic.
+- Rust+ is an external upstream integration, not a service we deploy.
+
 ## Selected Feature Areas
 
 ### In-Game Time Tracking
