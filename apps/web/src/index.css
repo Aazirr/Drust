@@ -18,7 +18,7 @@
   --good-soft: rgba(109, 198, 162, 0.14);
   --alert: #ef8d74;
   --alert-soft: rgba(239, 141, 116, 0.14);
-  --shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+  --shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
   --radius-panel: 16px;
   --radius-item: 12px;
   --radius-pill: 999px;
@@ -60,6 +60,32 @@ button {
   min-height: 100vh;
 }
 
+/* ── Loading splash ── */
+
+#drust-loading {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  transition: opacity 400ms ease, visibility 400ms ease;
+}
+
+#drust-loading[aria-hidden='true'] {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+#drust-loading object {
+  width: 280px;
+  height: auto;
+}
+
+/* ── App shell ── */
+
 .app-shell {
   min-height: 100vh;
   display: grid;
@@ -69,16 +95,43 @@ button {
   position: relative;
 }
 
+/* Hex grid background */
 .app-shell::before {
   content: '';
   position: fixed;
   inset: 0;
   pointer-events: none;
-  background:
-    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
-  background-size: 56px 56px;
-  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.38), transparent 100%);
+  z-index: 0;
+  background-image:
+    url('/ui-rework-assets/backgrounds/hex-grid.svg'),
+    url('/ui-rework-assets/backgrounds/grain.svg'),
+    url('/ui-rework-assets/backgrounds/scan-lines.svg');
+  background-repeat: repeat, repeat, repeat;
+  background-size: auto, 64px 64px, 100% 10px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.5), transparent 100%);
+}
+
+/* Sidebar terminal tick */
+.sidebar-tick {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 2px;
+  height: 100%;
+  background: var(--accent);
+  opacity: 0.25;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .sidebar-tick {
+    animation: drust-tick-pulse 4s ease-in-out infinite;
+  }
+}
+
+@keyframes drust-tick-pulse {
+  0%, 100% { opacity: 0.15; }
+  50% { opacity: 0.35; }
 }
 
 .sidebar,
@@ -106,7 +159,6 @@ button {
 .hero-panel,
 .workspace-header {
   background: linear-gradient(180deg, rgba(20, 32, 40, 0.96), rgba(12, 22, 29, 0.98));
-  border: 1px solid var(--line);
   box-shadow: var(--shadow);
 }
 
@@ -119,13 +171,36 @@ button {
 }
 
 .status-bar {
+  position: relative;
   border-radius: var(--radius-panel);
   padding: 18px 20px;
 }
 
 .hero-panel {
+  position: relative;
   border-radius: var(--radius-panel);
   padding: 24px;
+}
+
+/* Corner brackets on hero panel and status bar */
+.hero-panel::before,
+.status-bar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    url('/ui-rework-assets/ornaments/corner-bracket.svg') no-repeat top left,
+    url('/ui-rework-assets/ornaments/corner-bracket.svg') no-repeat top right,
+    url('/ui-rework-assets/ornaments/corner-bracket.svg') no-repeat bottom left,
+    url('/ui-rework-assets/ornaments/corner-bracket.svg') no-repeat bottom right;
+  background-size: 20px 20px, 20px 20px, 20px 20px, 20px 20px;
+  background-position:
+    calc(-1px) calc(-1px),
+    calc(100% + 1px) calc(-1px),
+    calc(-1px) calc(100% + 1px),
+    calc(100% + 1px) calc(100% + 1px);
 }
 
 .kicker {
@@ -198,7 +273,9 @@ button {
 
 .nav-item {
   display: grid;
-  gap: 4px;
+  grid-template-columns: 22px 1fr;
+  gap: 10px;
+  align-items: center;
   padding: 14px 16px;
   border-radius: var(--radius-item);
   border: 1px solid transparent;
@@ -209,6 +286,19 @@ button {
     transform 180ms ease,
     border-color 180ms ease,
     background-color 180ms ease;
+}
+
+.nav-item .nav-icon {
+  width: 18px;
+  height: 18px;
+  opacity: 0.5;
+  transition: opacity 180ms ease;
+  justify-self: center;
+}
+
+.nav-item .nav-text {
+  display: grid;
+  gap: 2px;
 }
 
 .nav-item strong {
@@ -227,9 +317,17 @@ button {
   border-color: var(--line-strong);
 }
 
+.nav-item:hover .nav-icon {
+  opacity: 0.8;
+}
+
 .nav-item-active {
   background: linear-gradient(180deg, rgba(217, 163, 95, 0.16), rgba(22, 36, 44, 0.9));
   border-color: rgba(217, 163, 95, 0.36);
+}
+
+.nav-item-active .nav-icon {
+  opacity: 1;
 }
 
 .section-heading {
@@ -313,13 +411,29 @@ button {
 }
 
 .status-chip {
+  position: relative;
+  display: grid;
+  grid-template-columns: 14px 1fr;
+  gap: 10px;
+  align-items: center;
   padding: 12px 14px;
   border-radius: var(--radius-item);
   border: 1px solid rgba(255, 255, 255, 0.06);
   background: rgba(7, 13, 17, 0.72);
+  overflow: hidden;
 }
 
-.status-chip span,
+.status-chip .status-icon {
+  width: 12px;
+  height: 12px;
+}
+
+.status-chip-text {
+  display: grid;
+  gap: 2px;
+}
+
+.status-chip-text span,
 .mini-stat span,
 .config-row span,
 .alarm-footer span,
@@ -331,7 +445,7 @@ button {
   font-size: 0.74rem;
 }
 
-.status-chip strong,
+.status-chip-text strong,
 .mini-stat strong,
 .config-row strong,
 .alarm-footer strong,
@@ -339,10 +453,19 @@ button {
 .sync-meta strong,
 .timeline-stamp strong {
   display: block;
-  margin-top: 6px;
   color: var(--text);
   font-size: 0.95rem;
   font-weight: 600;
+}
+
+/* Status glow background */
+.status-chip::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 300ms ease;
 }
 
 .status-chip-good {
@@ -350,8 +473,18 @@ button {
   background: linear-gradient(180deg, rgba(109, 198, 162, 0.1), rgba(7, 13, 17, 0.82));
 }
 
+.status-chip-good::after {
+  background: radial-gradient(ellipse 60px 30px at 50% 0%, rgba(109, 198, 162, 0.25), transparent);
+  opacity: 1;
+}
+
 .status-chip-warn {
   border-color: rgba(217, 163, 95, 0.28);
+}
+
+.status-chip-warn::after {
+  background: radial-gradient(ellipse 60px 30px at 50% 0%, rgba(217, 163, 95, 0.2), transparent);
+  opacity: 1;
 }
 
 .status-bar-actions {
@@ -371,6 +504,9 @@ button {
 .refresh-button,
 .timer-actions button,
 .config-card button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   min-height: 42px;
   border-radius: 10px;
   padding: 0 14px;
@@ -391,6 +527,14 @@ button {
   background: #1a2c37;
 }
 
+.refresh-button:disabled,
+.timer-actions button:disabled,
+.config-card button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
 .warning-banner {
   padding: 12px 14px;
   border-radius: var(--radius-item);
@@ -407,15 +551,16 @@ button {
   overflow: hidden;
 }
 
+/* Radial accent glow tied to hero */
 .hero-panel::after {
   content: '';
   position: absolute;
   right: -60px;
   top: -30px;
-  width: 220px;
-  height: 220px;
+  width: 260px;
+  height: 260px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(217, 163, 95, 0.18), transparent 68%);
+  background: radial-gradient(circle, rgba(217, 163, 95, 0.14), transparent 68%);
   pointer-events: none;
 }
 
@@ -434,9 +579,9 @@ button {
 
 .hero-copy h1 {
   margin-top: 4px;
-  font-size: 3rem;
+  font-size: 2.6rem;
   line-height: 0.92;
-  letter-spacing: -0.035em;
+  letter-spacing: -0.03em;
   max-width: 10ch;
 }
 
@@ -464,6 +609,16 @@ button {
   text-transform: capitalize;
 }
 
+/* ── Hero illustration ── */
+
+.hero-illustration {
+  width: 100px;
+  height: 100px;
+  flex-shrink: 0;
+}
+
+/* ── Timer panel ── */
+
 .timer-panel {
   display: flex;
   flex-direction: column;
@@ -477,13 +632,26 @@ button {
   border: 1px solid rgba(217, 163, 95, 0.28);
 }
 
-.timer-value {
+/* Timer ring wrapper */
+.timer-ring-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.timer-ring-wrap .timer-ring {
+  width: 140px;
+  height: 140px;
+}
+
+.timer-ring-wrap .timer-value {
   color: var(--text);
   font-family: var(--font-data);
-  font-size: 3.4rem;
+  font-size: 2.2rem;
   font-weight: 600;
   line-height: 1;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.02em;
 }
 
 .timer-caption {
@@ -502,6 +670,39 @@ button {
   border-color: rgba(239, 141, 116, 0.34);
   background: rgba(239, 141, 116, 0.12);
   color: #ffd8cb;
+}
+
+/* ── Idle radar state ── */
+
+.idle-radar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.idle-radar svg {
+  width: 120px;
+  height: 120px;
+}
+
+.idle-radar .kicker {
+  margin: 0;
+}
+
+/* ── Operation hero inline ── */
+
+.hero-operation-art {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.hero-operation-art svg {
+  width: 80px;
+  height: 80px;
+  flex-shrink: 0;
 }
 
 .content-grid,
@@ -658,8 +859,19 @@ button {
 }
 
 .empty-state {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  gap: 12px;
+  align-items: center;
   padding: 15px;
   color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.empty-state .empty-icon {
+  width: 36px;
+  height: 36px;
+  opacity: 0.4;
 }
 
 .mini-stat strong {
@@ -757,7 +969,9 @@ button {
   overflow: hidden;
   border-radius: var(--radius-item);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  background: linear-gradient(180deg, #0c1820, #091218 72%);
+  background:
+    url('/ui-rework-assets/backgrounds/map-tile.svg') no-repeat 50% 50% / cover,
+    linear-gradient(180deg, #0c1820, #091218 72%);
 }
 
 .map-surface-compact {
@@ -770,13 +984,6 @@ button {
   inset: 0;
 }
 
-.map-grid {
-  background:
-    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
-  background-size: 58px 58px;
-}
-
 .map-water {
   background:
     radial-gradient(circle at 18% 24%, rgba(109, 198, 162, 0.1), transparent 18%),
@@ -787,38 +994,42 @@ button {
 .map-node {
   position: absolute;
   transform: translate(-50%, -50%);
-  display: inline-flex;
-  align-items: center;
-  min-height: 28px;
-  padding: 0 10px;
-  border-radius: var(--radius-pill);
-  border: 1px solid transparent;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
 }
 
-.map-node span {
-  color: var(--text);
-  font-size: 0.76rem;
+.map-node svg {
+  width: 100%;
+  height: 100%;
+}
+
+.map-node-label {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translate(-50%, calc(100% + 4px));
+  color: var(--text-soft);
+  font-size: 0.7rem;
   white-space: nowrap;
-}
-
-.map-node-monument {
-  background: rgba(217, 163, 95, 0.18);
-  border-color: rgba(217, 163, 95, 0.34);
+  pointer-events: none;
+  text-shadow: 0 0 4px rgba(8, 16, 21, 0.9);
 }
 
 .map-node-team {
-  background: rgba(109, 198, 162, 0.18);
-  border-color: rgba(109, 198, 162, 0.34);
+  width: 20px;
+  height: 20px;
 }
 
 .map-node-alert {
-  background: rgba(239, 141, 116, 0.18);
-  border-color: rgba(239, 141, 116, 0.34);
+  width: 24px;
+  height: 24px;
 }
 
 .map-node-cargo {
-  background: rgba(114, 135, 147, 0.2);
-  border-color: rgba(114, 135, 147, 0.34);
+  width: 32px;
+  height: 32px;
 }
 
 .map-legend {
@@ -937,6 +1148,28 @@ button {
 
   .map-surface {
     min-height: 320px;
+  }
+}
+
+/* ── Animations ── */
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes drust-live-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  @keyframes drust-glow-pulse {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+  }
+
+  .state-live {
+    animation: drust-live-pulse 2s ease-in-out infinite;
+  }
+
+  .team-member-moving .map-node-team svg {
+    animation: drust-glow-pulse 1.5s ease-in-out infinite;
   }
 }
 

@@ -9,6 +9,12 @@ import type {
 } from '@drust/domain'
 import { useDashboardState } from './useDashboardState'
 
+/* ── Helper: inline SVG for asset references ── */
+
+function AssetImg({ path, className, alt, style }: { path: string; className?: string; alt?: string; style?: React.CSSProperties }) {
+  return <img src={`/ui-rework-assets/${path}`} className={className} alt={alt ?? ''} draggable={false} style={style} />
+}
+
 type AppSection = 'overview' | 'map' | 'config'
 
 const navItems: Array<{ id: AppSection; label: string; detail: string }> = [
@@ -128,6 +134,12 @@ function StatusBar({
   error: string | null
   onRefresh: () => Promise<void>
 }) {
+  const statusIcon = (tone: string): string => {
+    if (tone === 'good') return 'icons/connection-connected.svg'
+    if (tone === 'warn') return 'icons/connection-degraded.svg'
+    return 'icons/connection-disconnected.svg'
+  }
+
   const items = [
     {
       label: 'Rust+',
@@ -156,13 +168,16 @@ function StatusBar({
       <header className="status-bar">
         <div className="status-bar-copy">
           <p className="kicker">Live board</p>
-          <h2>Operations remain visible even when the squad is split between game and Discord.</h2>
+          <h2>Live status across all integrated services.</h2>
         </div>
         <div className="status-grid">
           {items.map((item) => (
             <article className={`status-chip status-chip-${item.tone}`} key={item.label}>
-              <span>{item.label}</span>
-              <strong>{item.value}</strong>
+              <AssetImg path={statusIcon(item.tone)} className="status-icon" alt="" />
+              <span className="status-chip-text">
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+              </span>
             </article>
           ))}
         </div>
@@ -171,18 +186,29 @@ function StatusBar({
             <span>Last sync</span>
             <strong>{formatLongTime(snapshot.updatedAt)}</strong>
           </div>
-          <button className="refresh-button" type="button" onClick={() => void onRefresh()}>
-            {state === 'loading' ? 'Syncing...' : 'Refresh state'}
+          <button className="refresh-button" type="button" onClick={() => void onRefresh()} disabled={state === 'loading'}>
+            {state === 'loading' ? (
+              <span className="drust-loading-dots" />
+            ) : (
+              'Refresh state'
+            )}
           </button>
         </div>
       </header>
       {(state === 'offline' || error) && (
         <div className="warning-banner">
-          Worker unreachable. The dashboard is still showing fallback state so the runbook stays readable.
+          Worker unreachable. Dashboard showing cached fallback.
         </div>
       )}
     </>
   )
+}
+
+function heroSvgPath(target: OperationTarget | null): string {
+  if (target === 'small-oil') return 'operation/hero-small-oil.svg'
+  if (target === 'large-oil') return 'operation/hero-large-oil.svg'
+  if (target === 'cargo') return 'operation/hero-cargo.svg'
+  return ''
 }
 
 function OverviewPage({
@@ -207,7 +233,16 @@ function OverviewPage({
                 {operation ? (operation.status === 'active' ? 'Operation live' : 'Operation closed') : 'No active operation'}
               </span>
             </div>
-            <h1>{operation ? formatTargetLabel(operation.target) : 'Standing by for the next trigger'}</h1>
+
+            {operation ? (
+              <div className="hero-operation-art">
+                <AssetImg path={heroSvgPath(operation.target)} className="hero-illustration" alt="" />
+                <h1>{formatTargetLabel(operation.target)}</h1>
+              </div>
+            ) : (
+              <h1>Standing by</h1>
+            )}
+
             <p className="hero-summary">
               {operation
                 ? 'Smart Alarm input created the board state, the timer, and the Discord callout. The rest of the page is now about execution.'
@@ -231,20 +266,29 @@ function OverviewPage({
           </div>
 
           <div className="timer-panel">
-            <div>
-              <p className="kicker">Countdown</p>
-              <div className="timer-value">{formatRemaining(operation?.remainingSeconds ?? null)}</div>
-              <p className="timer-caption">Use quick corrections only when the live state needs help.</p>
-            </div>
+            {operation ? (
+              <div className="timer-ring-wrap">
+                <p className="kicker">Countdown</p>
+                <AssetImg path="operation/timer-ring.svg" className="timer-ring" alt="" />
+                <div className="timer-value">{formatRemaining(operation.remainingSeconds)}</div>
+              </div>
+            ) : (
+              <div className="idle-radar">
+                <AssetImg path="operation/idle-radar.svg" alt="" />
+                <p className="kicker">Awaiting signal</p>
+              </div>
+            )}
+            <p className="timer-caption">Use quick corrections only when the live state needs help.</p>
             <div className="timer-actions">
-              <button type="button" onClick={() => void onExtendTimer(2)}>
+              <button type="button" onClick={() => void onExtendTimer(2)} disabled={!operation}>
                 Add 2 min
               </button>
-              <button type="button" onClick={() => void onExtendTimer(5)}>
+              <button type="button" onClick={() => void onExtendTimer(5)} disabled={!operation}>
                 Add 5 min
               </button>
-              <button type="button" className="button-danger" onClick={() => void onCancelOperation()}>
-                Cancel operation
+              <button type="button" className="button-danger" onClick={() => void onCancelOperation()} disabled={!operation}>
+                <AssetImg path="icons/cancel.svg" alt="" style={{ width: 16, height: 16 }} />
+                Cancel
               </button>
             </div>
           </div>
@@ -254,7 +298,6 @@ function OverviewPage({
           <SectionHeading
             title="Alarm watch"
             detail="Bound entities that can open an operation automatically."
-            meta="Smart Alarm"
           />
           <div className="alarm-grid">
             {snapshot.alarmBindings.map((binding) => (
@@ -265,7 +308,7 @@ function OverviewPage({
 
         <section className="panel split-panel">
           <div>
-            <SectionHeading title="Roles" detail="Current squad assignments for this run." meta="Manual today" />
+            <SectionHeading title="Roles" detail="Current squad assignments for this run." />
             <div className="list-stack">
               {snapshot.roles.length > 0 ? (
                 snapshot.roles.map((entry) => (
@@ -284,7 +327,7 @@ function OverviewPage({
           </div>
 
           <div>
-            <SectionHeading title="Checklist" detail="Fast prep items before the launch leaves." meta="Shore base" />
+            <SectionHeading title="Checklist" detail="Fast prep items before the launch leaves." />
             <div className="list-stack">
               {snapshot.checklist.length > 0 ? (
                 snapshot.checklist.map((entry) => (
@@ -306,7 +349,6 @@ function OverviewPage({
           <SectionHeading
             title="Event feed"
             detail="Recent state changes from alarms, timers, and delivery."
-            meta="Live sync"
           />
           <div className="timeline">
             {snapshot.activityLog.length > 0 ? (
@@ -329,7 +371,6 @@ function OverviewPage({
           <SectionHeading
             title="Run notes"
             detail="Supporting context that should stay visible beside the clock."
-            meta="Working draft"
           />
           <div className="notes-stack">
             {snapshot.notes.length > 0 ? (
@@ -348,7 +389,6 @@ function OverviewPage({
           <SectionHeading
             title="Map preview"
             detail="Condensed awareness for the current board."
-            meta="Operational view"
           />
           <MapCanvas
             markers={snapshot.map.markers}
@@ -368,9 +408,12 @@ function AlarmCard({ binding }: { binding: AlarmBinding }) {
   return (
     <article className="alarm-card">
       <div className="alarm-topline">
-        <div>
-          <h3>{formatTargetLabel(binding.target)}</h3>
-          <p>Entity #{binding.entityId}</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {isHot ? <AssetImg path="icons/alarm-trigger.svg" alt="" style={{ width: 16, height: 16 }} /> : null}
+          <div>
+            <h3>{formatTargetLabel(binding.target)}</h3>
+            <p>Entity #{binding.entityId}</p>
+          </div>
         </div>
         <span className={`state-pill ${isHot ? 'state-alert' : 'state-good'}`}>
           {binding.enabled ? 'Armed' : 'Disabled'}
@@ -607,7 +650,6 @@ function ConfigViewPage({
         <SectionHeading
           title="Feature flags"
           detail="Spec-driven switches for current behavior."
-          meta="Controlled"
         />
         <div className="flag-grid">
           <FlagCard
@@ -638,7 +680,12 @@ function ConfigItem({ label, value }: { label: string; value: string }) {
 }
 
 function EmptyState({ message }: { message: string }) {
-  return <article className="empty-state">{message}</article>
+  return (
+    <article className="empty-state">
+      <AssetImg path="backgrounds/radar-noise.svg" className="empty-icon" alt="" />
+      <span>{message}</span>
+    </article>
+  )
 }
 
 function FlagCard({ label, value }: { label: string; value: string }) {
@@ -648,6 +695,14 @@ function FlagCard({ label, value }: { label: string; value: string }) {
       <strong>{value}</strong>
     </article>
   )
+}
+
+function monumentSvg(name: string): string {
+  const lower = name.toLowerCase()
+  if (lower.includes('small oil') || lower.includes('small_oil')) return 'markers/small-oil.svg'
+  if (lower.includes('large oil') || lower.includes('large_oil')) return 'markers/large-oil.svg'
+  if (lower.includes('cargo')) return 'markers/cargo-ship.svg'
+  return 'markers/generic-pin.svg'
 }
 
 function MapCanvas({
@@ -663,15 +718,14 @@ function MapCanvas({
 }) {
   return (
     <div className={`map-surface ${compact ? 'map-surface-compact' : ''}`} aria-hidden="true">
-      <div className="map-grid" />
-      <div className="map-water" />
       {monuments.map((monument) => (
         <div
-          className="map-node map-node-monument"
+          className="map-node"
           key={monument.id}
           style={{ left: `${monument.x * 100}%`, top: `${monument.y * 100}%` }}
         >
-          <span>{monument.name}</span>
+          <AssetImg path={monumentSvg(monument.name)} alt="" />
+          <span className="map-node-label">{monument.name}</span>
         </div>
       ))}
       {teamMembers.map((member) => (
@@ -680,18 +734,32 @@ function MapCanvas({
           key={member.steamId}
           style={{ left: `${member.x * 100}%`, top: `${member.y * 100}%` }}
         >
-          <span>{member.name}</span>
+          <AssetImg path={member.isAlive ? 'markers/team-alive.svg' : 'markers/team-dead.svg'} alt="" />
+          <span className="map-node-label">{member.name}</span>
         </div>
       ))}
-      {markers.map((marker) => (
-        <div
-          className={`map-node ${marker.markerType === 'CargoShip' ? 'map-node-cargo' : 'map-node-alert'}`}
-          key={marker.markerId}
-          style={{ left: `${marker.x * 100}%`, top: `${marker.y * 100}%` }}
-        >
-          <span>{marker.markerType}</span>
-        </div>
-      ))}
+      {markers.map((marker) => {
+        const isCargo = marker.markerType === 'CargoShip'
+        const isCh47 = marker.markerType === 'CH47'
+        const isHeli = marker.markerType === 'PatrolHelicopter'
+        const markerPath = isCargo
+          ? 'markers/cargo-ship.svg'
+          : isCh47
+            ? 'markers/ch47.svg'
+            : isHeli
+              ? 'markers/patrol-heli.svg'
+              : 'markers/generic-pin.svg'
+        return (
+          <div
+            className={`map-node ${isCargo ? 'map-node-cargo' : 'map-node-alert'}`}
+            key={marker.markerId}
+            style={{ left: `${marker.x * 100}%`, top: `${marker.y * 100}%` }}
+          >
+            <AssetImg path={markerPath} alt="" />
+            <span className="map-node-label">{marker.markerType}</span>
+          </div>
+        )
+      })}
       {monuments.length === 0 && markers.length === 0 && teamMembers.length === 0 ? (
         <div className="map-empty">No live map data yet.</div>
       ) : null}
@@ -742,26 +810,34 @@ function App() {
   return (
     <main className="app-shell">
       <aside className="sidebar">
+        <div className="sidebar-tick" aria-hidden="true" />
+
         <div className="brand-block">
-          <p className="kicker">Drust command</p>
-          <h1>Fast board clarity for live Rust operations.</h1>
-          <p className="supporting-copy">
-            A tactical dashboard for Rust+, timer discipline, and Discord coordination without the admin drag.
-          </p>
+          <AssetImg path="brand/drust-wordmark.svg" alt="Drust" />
         </div>
 
         <nav className="sidebar-nav" aria-label="Primary">
-          {navItems.map((item) => (
-            <button
-              className={`nav-item ${section === item.id ? 'nav-item-active' : ''}`}
-              key={item.id}
-              type="button"
-              onClick={() => handleSectionChange(item.id)}
-            >
-              <strong>{item.label}</strong>
-              <span>{item.detail}</span>
-            </button>
-          ))}
+          {navItems.map((item) => {
+            const iconMap: Record<string, string> = {
+              overview: 'icons/nav-overview.svg',
+              map: 'icons/nav-map.svg',
+              config: 'icons/nav-config.svg',
+            }
+            return (
+              <button
+                className={`nav-item ${section === item.id ? 'nav-item-active' : ''}`}
+                key={item.id}
+                type="button"
+                onClick={() => handleSectionChange(item.id)}
+              >
+                <AssetImg path={iconMap[item.id]} className="nav-icon" alt="" />
+                <span className="nav-text">
+                  <strong>{item.label}</strong>
+                  <span>{item.detail}</span>
+                </span>
+              </button>
+            )
+          })}
         </nav>
 
         <section className="rail-card">
