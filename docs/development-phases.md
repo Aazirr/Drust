@@ -67,6 +67,7 @@ Status: In progress
 - [x] Added Smart Alarm countdown scheduling so bot-owned Oil Rig alerts now ping at trigger, 5 minutes left, 2 minutes left, 1 minute left, and timer complete for the fixed 15-minute Oil Rig window.
 - [x] Added a refresh performance pass by breaking the worker-bot health-check loop, caching Discord bot reachability in the worker, and restoring the dashboard instantly from the last good snapshot during reloads.
 - [x] Hardened alarm handling so Smart Alarm state changes still open operations and schedule countdowns even if Discord alert delivery fails.
+- [x] Fixed live countdown rendering without manual refresh, added cancel controls for active operations and alarm bindings, normalized service base URLs, and corrected Rust+ alarm binding updates so imported Smart Alarm entity IDs stay live inside the websocket bridge.
 
 ## Phase 3 - Validation
 

@@ -14,13 +14,21 @@ export interface WorkerConfig {
   }
 }
 
+function normalizeBaseUrl(value: string | null | undefined): string | null {
+  if (!value) {
+    return null
+  }
+
+  return value.replace(/\/+$/, '')
+}
+
 export function getConfig(): WorkerConfig {
   return {
     port: Number(process.env.PORT ?? 8787),
     databaseUrl: process.env.DATABASE_URL ?? null,
-    discordBotUrl: process.env.DRUST_DISCORD_BOT_URL ?? null,
+    discordBotUrl: normalizeBaseUrl(process.env.DRUST_DISCORD_BOT_URL),
     discordBotToken: process.env.DRUST_BOT_INTERNAL_TOKEN ?? null,
-    discordBotHealthUrl: process.env.DRUST_DISCORD_BOT_HEALTH_URL ?? null,
+    discordBotHealthUrl: normalizeBaseUrl(process.env.DRUST_DISCORD_BOT_HEALTH_URL),
     rustplus: {
       serverIp: process.env.RUSTPLUS_SERVER_IP ?? null,
       appPort: process.env.RUSTPLUS_APP_PORT ? Number(process.env.RUSTPLUS_APP_PORT) : null,

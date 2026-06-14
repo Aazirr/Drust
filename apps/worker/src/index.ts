@@ -348,6 +348,20 @@ const server = createServer(async (request: IncomingMessage, response: ServerRes
     return
   }
 
+  if (request.method === 'POST' && requestUrl.pathname === '/api/rustplus/device-binding/remove') {
+    const payload = await readJson<{ target: OperationTarget }>(request)
+    if (payload.target !== 'small-oil' && payload.target !== 'large-oil') {
+      writeJson(response, 400, { message: 'Smart Alarm removal only supports small-oil or large-oil.' })
+      return
+    }
+
+    await persistence.deleteAlarmBinding(payload.target)
+    const nextSnapshot = state.removeSmartAlarmBinding(payload.target)
+    rustplusBridge.updateAlarmBinding(payload.target, null)
+    writeJson(response, 200, nextSnapshot)
+    return
+  }
+
   if (request.method === 'POST' && requestUrl.pathname === '/api/actions/start-operation') {
     const payload = await readJson<StartOperationInput>(request)
     const nextSnapshot = state.startOperation(payload)

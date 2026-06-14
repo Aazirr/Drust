@@ -9,6 +9,14 @@ export interface BotConfig {
   workerUrl: string
 }
 
+function normalizeBaseUrl(value: string | null | undefined): string | null {
+  if (!value) {
+    return null
+  }
+
+  return value.replace(/\/+$/, '')
+}
+
 export function getConfig(): BotConfig {
   return {
     port: Number(process.env.PORT ?? 3001),
@@ -18,6 +26,6 @@ export function getConfig(): BotConfig {
     alertsChannelId: process.env.DISCORD_ALERTS_CHANNEL_ID ?? null,
     rustRoleId: process.env.DISCORD_RUST_ROLE_ID ?? null,
     internalToken: process.env.DRUST_BOT_INTERNAL_TOKEN ?? null,
-    workerUrl: process.env.DRUST_WORKER_URL ?? 'http://localhost:8787',
+    workerUrl: normalizeBaseUrl(process.env.DRUST_WORKER_URL) ?? 'http://localhost:8787',
   }
 }

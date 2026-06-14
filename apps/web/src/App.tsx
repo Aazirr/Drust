@@ -188,11 +188,11 @@ function StatusBar({
 function OverviewPage({
   snapshot,
   onExtendTimer,
-  onCloseOperation,
+  onCancelOperation,
 }: {
   snapshot: DashboardSnapshot
   onExtendTimer: (minutes: number) => Promise<void>
-  onCloseOperation: () => Promise<void>
+  onCancelOperation: () => Promise<void>
 }) {
   const operation = snapshot.activeOperation
 
@@ -243,8 +243,8 @@ function OverviewPage({
               <button type="button" onClick={() => void onExtendTimer(5)}>
                 Add 5 min
               </button>
-              <button type="button" className="button-danger" onClick={() => void onCloseOperation()}>
-                Close run
+              <button type="button" className="button-danger" onClick={() => void onCancelOperation()}>
+                Cancel operation
               </button>
             </div>
           </div>
@@ -456,11 +456,13 @@ function ConfigViewPage({
   onTriggerAlarm,
   onStartRustplusPairing,
   onStartSmartAlarmBinding,
+  onRemoveSmartAlarmBinding,
 }: {
   snapshot: DashboardSnapshot
   onTriggerAlarm: (target: OperationTarget, entityId: string) => Promise<void>
   onStartRustplusPairing: () => Promise<void>
   onStartSmartAlarmBinding: (target: 'small-oil' | 'large-oil') => Promise<void>
+  onRemoveSmartAlarmBinding: (target: 'small-oil' | 'large-oil') => Promise<void>
 }) {
   return (
     <section className="config-grid">
@@ -555,6 +557,13 @@ function ConfigViewPage({
                   </button>
                   <button type="button" onClick={() => void onTriggerAlarm(binding.target, binding.entityId)}>
                     Fire test
+                  </button>
+                  <button
+                    type="button"
+                    className="button-danger"
+                    onClick={() => void onRemoveSmartAlarmBinding(binding.target as 'small-oil' | 'large-oil')}
+                  >
+                    Cancel alarm
                   </button>
                 </div>
               </article>
@@ -706,6 +715,7 @@ function App() {
     closeOperation,
     startRustplusPairing,
     startSmartAlarmBinding,
+    removeSmartAlarmBinding,
   } =
     useDashboardState()
   const [section, setSection] = useState<AppSection>('overview')
@@ -803,7 +813,7 @@ function App() {
           <OverviewPage
             snapshot={activeSnapshot}
             onExtendTimer={extendTimer}
-            onCloseOperation={() =>
+            onCancelOperation={() =>
               closeOperation({ result: 'aborted', closeNote: 'Closed from dashboard prototype.' })
             }
           />
@@ -815,6 +825,7 @@ function App() {
             onTriggerAlarm={handleTriggerAlarm}
             onStartRustplusPairing={startRustplusPairing}
             onStartSmartAlarmBinding={startSmartAlarmBinding}
+            onRemoveSmartAlarmBinding={removeSmartAlarmBinding}
           />
         )}
       </section>

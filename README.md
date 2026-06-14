@@ -69,6 +69,8 @@ npm run lint
 - `DRUST_DISCORD_BOT_URL` - base URL of the Discord bot service, for example `https://drustbot-production.up.railway.app`.
 - `DRUST_BOT_INTERNAL_TOKEN` - shared secret used when the worker sends internal alert traffic to the bot service.
 - `DRUST_DISCORD_BOT_HEALTH_URL` - bot health endpoint, usually `<bot-url>/health`.
+
+Do not leave trailing slashes on service base URLs such as `DRUST_DISCORD_BOT_URL`, `DRUST_DISCORD_BOT_HEALTH_URL`, or `DRUST_WORKER_URL`.
 - `RUSTPLUS_SERVER_IP` - Rust server IP.
 - `RUSTPLUS_APP_PORT` - Rust+ companion app port.
 - `RUSTPLUS_PLAYER_ID` - player Steam ID used for Rust+ auth.

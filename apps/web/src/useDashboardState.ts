@@ -50,6 +50,7 @@ export function useDashboardState() {
     return window.sessionStorage.getItem(SNAPSHOT_CACHE_KEY) ? 'ready' : 'loading'
   })
   const [error, setError] = useState<string | null>(null)
+  const [now, setNow] = useState(() => Date.now())
 
   async function loadSnapshot(): Promise<void> {
     try {
@@ -82,6 +83,16 @@ export function useDashboardState() {
     const intervalId = window.setInterval(() => {
       void syncSnapshot()
     }, 10000)
+
+    return () => {
+      window.clearInterval(intervalId)
+    }
+  }, [])
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setNow(Date.now())
+    }, 1000)
 
     return () => {
       window.clearInterval(intervalId)
@@ -213,8 +224,24 @@ export function useDashboardState() {
     }
   }
 
+  async function removeSmartAlarmBinding(target: 'small-oil' | 'large-oil'): Promise<void> {
+    const nextSnapshot = await postJson<{ target: 'small-oil' | 'large-oil' }, DashboardSnapshot>(
+      '/api/rustplus/device-binding/remove',
+      { target },
+    )
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.setItem(SNAPSHOT_CACHE_KEY, JSON.stringify(nextSnapshot))
+    }
+
+    startTransition(() => {
+      setSnapshot(withDerivedSnapshot(nextSnapshot))
+      setState('ready')
+      setError(null)
+    })
+  }
+
   return {
-    snapshot: withDerivedSnapshot(snapshot),
+    snapshot: withDerivedSnapshot(snapshot, new Date(now)),
     state,
     error,
     refresh: loadSnapshot,
@@ -223,5 +250,6 @@ export function useDashboardState() {
     closeOperation,
     startRustplusPairing,
     startSmartAlarmBinding,
+    removeSmartAlarmBinding,
   }
 }

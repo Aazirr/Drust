@@ -88,7 +88,7 @@ export class RustplusBridgeManager {
     await this.connect(connection)
   }
 
-  updateAlarmBinding(target: 'small-oil' | 'large-oil', entityId: string): void {
+  updateAlarmBinding(target: 'small-oil' | 'large-oil', entityId: string | null): void {
     if (!this.currentConnection) {
       return
     }
@@ -99,7 +99,7 @@ export class RustplusBridgeManager {
       this.currentConnection.largeOilEntityId = entityId
     }
 
-    if (this.client) {
+    if (this.client && entityId) {
       this.client.getEntityInfo(entityId)
     }
   }
@@ -107,7 +107,8 @@ export class RustplusBridgeManager {
   private async connect(connection: RustplusConnectionInput): Promise<void> {
     const currentSession = ++this.sessionId
     this.disconnectCurrentClient()
-    this.currentConnection = { ...connection }
+    const activeConnection = { ...connection }
+    this.currentConnection = activeConnection
 
     const module = await import('@liamcottle/rustplus.js')
     const RustPlus = (module.default ?? module) as new (
@@ -157,7 +158,7 @@ export class RustplusBridgeManager {
         })
       })
 
-      const entityIds = [connection.smallOilEntityId, connection.largeOilEntityId].filter(Boolean) as string[]
+      const entityIds = [activeConnection.smallOilEntityId, activeConnection.largeOilEntityId].filter(Boolean) as string[]
 
       entityIds.forEach((entityId) => {
         client.getEntityInfo(entityId)
@@ -200,9 +201,9 @@ export class RustplusBridgeManager {
 
       const entityId = String(entityChanged.entityId)
       const target =
-        entityId === connection.smallOilEntityId
+        entityId === activeConnection.smallOilEntityId
           ? 'small-oil'
-          : entityId === connection.largeOilEntityId
+          : entityId === activeConnection.largeOilEntityId
             ? 'large-oil'
             : null
 

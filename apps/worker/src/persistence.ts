@@ -209,6 +209,20 @@ export class WorkerPersistence {
     )
   }
 
+  async deleteAlarmBinding(target: 'small-oil' | 'large-oil'): Promise<void> {
+    if (!this.pool) {
+      return
+    }
+
+    await this.pool.query(
+      `
+        DELETE FROM rustplus_alarm_binding
+        WHERE target = $1
+      `,
+      [target],
+    )
+  }
+
   private mapServerPairing(row: PersistedServerPairingRow): RustplusServerPairing {
     return {
       source: row.source,

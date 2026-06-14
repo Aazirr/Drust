@@ -334,6 +334,28 @@ export class WorkerState {
     return this.getSnapshot()
   }
 
+  removeSmartAlarmBinding(target: 'small-oil' | 'large-oil'): DashboardSnapshot {
+    const label = target === 'small-oil' ? 'Small Oil' : 'Large Oil'
+    this.snapshot = {
+      ...this.snapshot,
+      alarmBindings: this.snapshot.alarmBindings.filter((binding) => binding.target !== target),
+      activityLog: [
+        {
+          eventId: `connection-change-${target}-${Date.now()}`,
+          type: 'connection-change' as const,
+          target,
+          source: 'smart-alarm' as const,
+          message: `${label} Smart Alarm binding was removed.`,
+          createdAt: new Date().toISOString(),
+        },
+        ...this.snapshot.activityLog,
+      ].slice(0, 18),
+      updatedAt: new Date().toISOString(),
+    }
+
+    return this.getSnapshot()
+  }
+
   triggerSmartAlarm(input: AlarmTriggerInput): DashboardSnapshot {
     this.snapshot = startOperationFromAlarm(this.snapshot, input)
     return this.getSnapshot()
