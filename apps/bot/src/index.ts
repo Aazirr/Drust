@@ -206,37 +206,19 @@ async function sendOperationAlert(
 function createHealthServer(port: number, client: Client): void {
   const server = createServer(async (request, response) => {
     if (request.method === 'GET' && request.url === '/health') {
-      try {
-        const health = await worker.fetchHealth()
-        response.writeHead(200, { 'content-type': 'application/json' })
-        response.end(
-          JSON.stringify({
-            service: 'drust-bot',
-            status: 'ok',
-            discordConfigured: Boolean(config.token),
-            botReady,
-            alertsChannelConfigured: Boolean(config.alertsChannelId),
-            rustRoleConfigured: Boolean(config.rustRoleId),
-            internalAuthConfigured: Boolean(config.internalToken),
-            worker: health,
-          }),
-        )
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unknown worker error.'
-        response.writeHead(503, { 'content-type': 'application/json' })
-        response.end(
-          JSON.stringify({
-            service: 'drust-bot',
-            status: 'degraded',
-            discordConfigured: Boolean(config.token),
-            botReady,
-            alertsChannelConfigured: Boolean(config.alertsChannelId),
-            rustRoleConfigured: Boolean(config.rustRoleId),
-            internalAuthConfigured: Boolean(config.internalToken),
-            workerError: message,
-          }),
-        )
-      }
+      response.writeHead(200, { 'content-type': 'application/json' })
+      response.end(
+        JSON.stringify({
+          service: 'drust-bot',
+          status: botReady ? 'ok' : 'starting',
+          discordConfigured: Boolean(config.token),
+          botReady,
+          alertsChannelConfigured: Boolean(config.alertsChannelId),
+          rustRoleConfigured: Boolean(config.rustRoleId),
+          internalAuthConfigured: Boolean(config.internalToken),
+          workerUrlConfigured: Boolean(config.workerUrl),
+        }),
+      )
       return
     }
 

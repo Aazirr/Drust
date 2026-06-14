@@ -11,6 +11,7 @@ import {
 import { startTransition, useEffect, useEffectEvent, useState } from 'react'
 
 const API_BASE_URL = import.meta.env.VITE_DRUST_API_URL ?? 'http://127.0.0.1:8787'
+const SNAPSHOT_CACHE_KEY = 'drust-dashboard-snapshot'
 
 type LoadState = 'loading' | 'ready' | 'offline'
 
@@ -25,13 +26,38 @@ async function fetchSnapshot(): Promise<DashboardSnapshot> {
 }
 
 export function useDashboardState() {
-  const [snapshot, setSnapshot] = useState<DashboardSnapshot>(() => createMockSnapshot())
-  const [state, setState] = useState<LoadState>('loading')
+  const [snapshot, setSnapshot] = useState<DashboardSnapshot>(() => {
+    if (typeof window === 'undefined') {
+      return createMockSnapshot()
+    }
+
+    const cachedSnapshot = window.sessionStorage.getItem(SNAPSHOT_CACHE_KEY)
+    if (!cachedSnapshot) {
+      return createMockSnapshot()
+    }
+
+    try {
+      return withDerivedSnapshot(JSON.parse(cachedSnapshot) as DashboardSnapshot)
+    } catch {
+      return createMockSnapshot()
+    }
+  })
+  const [state, setState] = useState<LoadState>(() => {
+    if (typeof window === 'undefined') {
+      return 'loading'
+    }
+
+    return window.sessionStorage.getItem(SNAPSHOT_CACHE_KEY) ? 'ready' : 'loading'
+  })
   const [error, setError] = useState<string | null>(null)
 
   async function loadSnapshot(): Promise<void> {
     try {
       const nextSnapshot = await fetchSnapshot()
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.setItem(SNAPSHOT_CACHE_KEY, JSON.stringify(nextSnapshot))
+      }
+
       startTransition(() => {
         setSnapshot(nextSnapshot)
         setState('ready')
@@ -84,6 +110,9 @@ export function useDashboardState() {
         '/api/events/smart-alarm',
         input,
       )
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.setItem(SNAPSHOT_CACHE_KEY, JSON.stringify(nextSnapshot))
+      }
       startTransition(() => {
         setSnapshot(withDerivedSnapshot(nextSnapshot))
         setState('ready')
@@ -103,6 +132,9 @@ export function useDashboardState() {
         '/api/actions/timer-extend',
         { minutes },
       )
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.setItem(SNAPSHOT_CACHE_KEY, JSON.stringify(nextSnapshot))
+      }
       startTransition(() => {
         setSnapshot(withDerivedSnapshot(nextSnapshot))
         setError(null)
@@ -120,6 +152,9 @@ export function useDashboardState() {
         '/api/actions/close-operation',
         input,
       )
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.setItem(SNAPSHOT_CACHE_KEY, JSON.stringify(nextSnapshot))
+      }
       startTransition(() => {
         setSnapshot(withDerivedSnapshot(nextSnapshot))
         setError(null)
@@ -137,6 +172,9 @@ export function useDashboardState() {
         '/api/rustplus/pairing/start',
         {},
       )
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.setItem(SNAPSHOT_CACHE_KEY, JSON.stringify(nextSnapshot))
+      }
       startTransition(() => {
         setSnapshot(withDerivedSnapshot(nextSnapshot))
         setState('ready')
@@ -157,6 +195,9 @@ export function useDashboardState() {
         '/api/rustplus/device-binding/start',
         { target },
       )
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.setItem(SNAPSHOT_CACHE_KEY, JSON.stringify(nextSnapshot))
+      }
       startTransition(() => {
         setSnapshot(withDerivedSnapshot(nextSnapshot))
         setState('ready')

@@ -29,6 +29,9 @@ const smartAlarmIdsConfigured = Boolean(
 )
 let countdownTimers: ReturnType<typeof setTimeout>[] = []
 let scheduledOperationId: string | null = null
+const DISCORD_STATUS_TTL_MS = 30_000
+let lastDiscordStatusCheckAt = 0
+let discordStatusRefreshInFlight: Promise<void> | null = null
 
 state.syncDiscordMode({
   botDeliveryConfigured: discord.enabled,
@@ -39,22 +42,41 @@ state.syncRustplusPairingFromConfig({
   smartAlarmsConfigured: smartAlarmIdsConfigured,
 })
 
-async function refreshDiscordStatus(): Promise<void> {
-  let botConnected = false
-
-  if (config.discordBotHealthUrl) {
-    try {
-      const response = await fetch(config.discordBotHealthUrl)
-      botConnected = response.ok
-    } catch {
-      botConnected = false
-    }
+async function refreshDiscordStatus(force = false): Promise<void> {
+  const now = Date.now()
+  if (!force && now - lastDiscordStatusCheckAt < DISCORD_STATUS_TTL_MS) {
+    return
   }
 
-  state.syncDiscordMode({
-    botDeliveryConfigured: discord.enabled,
-    botConnected,
-  })
+  if (discordStatusRefreshInFlight) {
+    await discordStatusRefreshInFlight
+    return
+  }
+
+  discordStatusRefreshInFlight = (async () => {
+    let botConnected = false
+
+    if (config.discordBotHealthUrl) {
+      try {
+        const response = await fetch(config.discordBotHealthUrl)
+        botConnected = response.ok
+      } catch {
+        botConnected = false
+      }
+    }
+
+    state.syncDiscordMode({
+      botDeliveryConfigured: discord.enabled,
+      botConnected,
+    })
+    lastDiscordStatusCheckAt = Date.now()
+  })()
+
+  try {
+    await discordStatusRefreshInFlight
+  } finally {
+    discordStatusRefreshInFlight = null
+  }
 }
 
 async function hydratePersistedRustplusState(): Promise<void> {
@@ -357,7 +379,7 @@ server.listen(config.port, async () => {
     }
 
     await hydratePersistedRustplusState()
-    await refreshDiscordStatus()
+    await refreshDiscordStatus(true)
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown Rust+ startup error.'
     state.updateServerConnection({
