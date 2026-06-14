@@ -75,7 +75,9 @@ function storeSnapshot(snapshot: DashboardSnapshot): void {
 }
 
 async function fetchSnapshot(): Promise<DashboardSnapshot> {
-  const response = await fetch(`${API_BASE_URL}/api/snapshot`)
+  const response = await fetch(`${API_BASE_URL}/api/snapshot`, {
+    cache: 'no-store',
+  })
   if (!response.ok) {
     throw new Error(`Snapshot request failed with status ${response.status}`)
   }

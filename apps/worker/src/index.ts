@@ -105,6 +105,7 @@ function writeJson(response: ServerResponse, statusCode: number, payload: unknow
     'access-control-allow-methods': 'GET,POST,OPTIONS',
     'access-control-allow-headers': 'content-type',
     'content-type': 'application/json',
+    'cache-control': 'no-store, no-cache, must-revalidate, private',
   })
   response.end(JSON.stringify(payload))
 }
