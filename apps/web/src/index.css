@@ -170,6 +170,18 @@ button {
   padding: 20px;
 }
 
+.brand-block {
+  overflow: hidden;
+}
+
+.brand-block img {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
 .status-bar {
   position: relative;
   border-radius: var(--radius-panel);
@@ -1123,10 +1135,6 @@ button {
   .status-bar,
   .hero-panel {
     padding: 16px;
-  }
-
-  .brand-block h1 {
-    font-size: 1.7rem;
   }
 
   .hero-copy h1 {
