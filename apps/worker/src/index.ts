@@ -1,6 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { getConfig } from './config.js'
 import { DiscordNotifier } from './discord.js'
+import { WorkerPersistence } from './persistence.js'
 import { RustplusBridgeManager } from './rustplus.js'
 import { WorkerState } from './state.js'
 import type {
@@ -15,6 +16,7 @@ import type {
 const config = getConfig()
 const state = new WorkerState()
 const discord = new DiscordNotifier(config.discordWebhookUrl)
+const persistence = new WorkerPersistence(config.databaseUrl)
 const rustplusBridge = new RustplusBridgeManager(state, handleAlarmTriggered)
 const rustplusCredentialsConfigured = Boolean(
   config.rustplus.serverIp &&
@@ -50,6 +52,26 @@ async function refreshDiscordStatus(): Promise<void> {
   state.syncDiscordMode({
     webhookConfigured: discord.enabled,
     botConnected,
+  })
+}
+
+async function hydratePersistedRustplusState(): Promise<void> {
+  await persistence.init()
+
+  const persistedState = await persistence.loadRustplusState()
+  const { serverPairing, alarmBindings } = persistedState
+
+  if (serverPairing) {
+    state.applyRustplusPairingImport(serverPairing)
+    await rustplusBridge.importPairing(serverPairing, config)
+  } else {
+    await rustplusBridge.startFromConfig(config)
+  }
+
+  alarmBindings.forEach((binding) => {
+    state.applySmartAlarmBindingImport(binding)
+    const target = binding.target as 'small-oil' | 'large-oil'
+    rustplusBridge.updateAlarmBinding(target, binding.entityId)
   })
 }
 
@@ -116,11 +138,14 @@ const server = createServer(async (request: IncomingMessage, response: ServerRes
     await refreshDiscordStatus()
     const snapshot = state.getSnapshot()
     const importedPairing = snapshot.rustplusPairing.lastImportedPairing
+    const smartAlarmsConfigured =
+      snapshot.alarmBindings.some((binding) => binding.target === 'small-oil' && Boolean(binding.entityId)) &&
+      snapshot.alarmBindings.some((binding) => binding.target === 'large-oil' && Boolean(binding.entityId))
 
     writeJson(response, 200, {
       rustplus: {
         configured: rustplusCredentialsConfigured || Boolean(importedPairing),
-        smartAlarmsConfigured: smartAlarmIdsConfigured,
+        smartAlarmsConfigured,
         connectionStatus: snapshot.serverConnection.connectionStatus,
         pairingMode: snapshot.rustplusPairing.mode,
       },
@@ -164,6 +189,7 @@ const server = createServer(async (request: IncomingMessage, response: ServerRes
     const nextSnapshot = state.applyRustplusPairingImport(payload)
 
     try {
+      await persistence.saveServerPairing(payload)
       await rustplusBridge.importPairing(payload, config)
       writeJson(response, 200, state.getSnapshot())
     } catch (error) {
@@ -185,6 +211,7 @@ const server = createServer(async (request: IncomingMessage, response: ServerRes
       return
     }
 
+    await persistence.saveAlarmBinding(payload)
     const nextSnapshot = state.applySmartAlarmBindingImport(payload)
     rustplusBridge.updateAlarmBinding(payload.target, payload.entityId)
     writeJson(response, 200, nextSnapshot)
@@ -218,7 +245,13 @@ server.listen(config.port, async () => {
   console.log(`[drust-worker] listening on http://localhost:${config.port}`)
 
   try {
-    await rustplusBridge.startFromConfig(config)
+    if (persistence.enabled) {
+      console.log('[drust-worker] postgres persistence enabled')
+    } else {
+      console.log('[drust-worker] postgres persistence disabled')
+    }
+
+    await hydratePersistedRustplusState()
     await refreshDiscordStatus()
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown Rust+ startup error.'

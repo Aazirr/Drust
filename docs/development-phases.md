@@ -61,6 +61,7 @@ Status: In progress
 - [x] Added a Smart Alarm binding helper flow so Small Oil and Large Oil entity IDs can be captured from live Rust+ device pairing notifications and imported into the worker.
 - [x] Expanded Discord integration status so the web app can distinguish webhook-only, bot-only, and bot-plus-webhook deployments.
 - [x] Removed dummy fallback dashboard data so empty and unconfigured states now render as `N/A` or explicit empty states instead of believable placeholder activity.
+- [x] Added Railway Postgres-backed worker persistence for imported Rust+ server pairings and Smart Alarm bindings so they survive worker redeploys.
 
 ## Phase 3 - Validation
 
