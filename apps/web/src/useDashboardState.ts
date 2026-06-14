@@ -14,6 +14,7 @@ const API_BASE_URL = import.meta.env.VITE_DRUST_API_URL ?? 'http://127.0.0.1:878
 const SNAPSHOT_CACHE_KEY_PREFIX = 'drust-dashboard-snapshot'
 const SNAPSHOT_CACHE_KEY = `${SNAPSHOT_CACHE_KEY_PREFIX}:${__DRUST_WEB_BUILD_ID__}`
 const SNAPSHOT_CACHE_LEGACY_KEY = 'drust-dashboard-snapshot'
+const SHOULD_USE_SESSION_CACHE = import.meta.env.PROD
 
 type LoadState = 'loading' | 'ready' | 'offline'
 
@@ -23,7 +24,7 @@ type SnapshotCacheEntry = {
 }
 
 function getCachedSnapshot(): DashboardSnapshot | null {
-  if (typeof window === 'undefined') {
+  if (!SHOULD_USE_SESSION_CACHE || typeof window === 'undefined') {
     return null
   }
 
@@ -62,7 +63,7 @@ function getCachedSnapshot(): DashboardSnapshot | null {
 }
 
 function storeSnapshot(snapshot: DashboardSnapshot): void {
-  if (typeof window === 'undefined') {
+  if (!SHOULD_USE_SESSION_CACHE || typeof window === 'undefined') {
     return
   }
 
