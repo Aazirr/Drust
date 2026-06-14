@@ -124,6 +124,7 @@ async function readJson<T>(request: IncomingMessage): Promise<T> {
 
 async function handleAlarmTriggered(input: AlarmTriggerInput): Promise<void> {
   state.triggerSmartAlarm(input)
+  syncCountdownSchedule()
 
   if (!discord.enabled) {
     return
@@ -135,16 +136,24 @@ async function handleAlarmTriggered(input: AlarmTriggerInput): Promise<void> {
     return
   }
 
-  await discord.sendOperationAlert({
-    kind: 'triggered',
-    target: operation.target,
-    source: operation.source,
-    startedAt: operation.startedAt,
-    endsAt: operation.endsAt,
-    operationId: operation.operationId,
-  })
-  state.recordDiscordMessage('Discord bot delivered operation alert.')
-  syncCountdownSchedule()
+  try {
+    await discord.sendOperationAlert({
+      kind: 'triggered',
+      target: operation.target,
+      source: operation.source,
+      startedAt: operation.startedAt,
+      endsAt: operation.endsAt,
+      operationId: operation.operationId,
+    })
+    state.recordDiscordMessage('Discord bot delivered operation alert.')
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown Discord alert delivery error.'
+    state.updateServerConnection({
+      lastError: message,
+      lastHeartbeatAt: new Date().toISOString(),
+    })
+    state.recordDiscordMessage('Alarm triggered, but Discord delivery failed.')
+  }
 }
 
 function clearCountdownSchedule(): void {

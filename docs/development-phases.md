@@ -66,6 +66,7 @@ Status: In progress
 - [x] Replaced worker Discord webhooks with bot-owned alert delivery so live Oil Rig alerts now route through the Discord bot service and can ping the Rust role directly.
 - [x] Added Smart Alarm countdown scheduling so bot-owned Oil Rig alerts now ping at trigger, 5 minutes left, 2 minutes left, 1 minute left, and timer complete for the fixed 15-minute Oil Rig window.
 - [x] Added a refresh performance pass by breaking the worker-bot health-check loop, caching Discord bot reachability in the worker, and restoring the dashboard instantly from the last good snapshot during reloads.
+- [x] Hardened alarm handling so Smart Alarm state changes still open operations and schedule countdowns even if Discord alert delivery fails.
 
 ## Phase 3 - Validation
 
