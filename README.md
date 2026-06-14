@@ -2,7 +2,7 @@
 
 Drust is a tactical Rust operations companion built around a fast loop:
 
-`Rust+ -> worker -> shared state -> web dashboard + Discord alerts`
+`Rust+ -> worker -> shared state -> web dashboard + Discord bot alerts`
 
 The MVP focuses on Oil Rig operations, Smart Alarm triggers, timer coordination, and giving the team a reliable command surface without heavy manual input.
 
@@ -20,8 +20,8 @@ The MVP focuses on Oil Rig operations, Smart Alarm triggers, timer coordination,
 - Web dashboard with Overview, Map View, and Configuration pages.
 - Worker endpoints for dashboard state, manual alarm triggers, timer control, and operation closing.
 - Rust+ bridge bootstrap with Smart Alarm ingestion support.
-- Discord webhook notification path for early operations alerts.
-- Discord bot service with guild-scoped slash commands for status, pairing checks, manual timer start, timer extension, and operation close.
+- Discord bot delivery path for live operation alerts and Rust role pings.
+- Discord bot service with guild-scoped slash commands for status, pairing checks, manual timer start, timer extension, operation close, and private worker-to-bot alert delivery.
 
 ## Local Development
 
@@ -66,7 +66,9 @@ npm run lint
 ### Worker
 
 - `PORT` - HTTP port for the worker service.
-- `DISCORD_WEBHOOK_URL` - webhook target for operations alerts.
+- `DRUST_DISCORD_BOT_URL` - base URL of the Discord bot service, for example `https://drustbot-production.up.railway.app`.
+- `DRUST_BOT_INTERNAL_TOKEN` - shared secret used when the worker sends internal alert traffic to the bot service.
+- `DRUST_DISCORD_BOT_HEALTH_URL` - bot health endpoint, usually `<bot-url>/health`.
 - `RUSTPLUS_SERVER_IP` - Rust server IP.
 - `RUSTPLUS_APP_PORT` - Rust+ companion app port.
 - `RUSTPLUS_PLAYER_ID` - player Steam ID used for Rust+ auth.
@@ -80,6 +82,9 @@ npm run lint
 - `DISCORD_BOT_TOKEN` - bot token from the Discord developer portal.
 - `DISCORD_APPLICATION_ID` - application/client ID for the bot.
 - `DISCORD_GUILD_ID` - target Discord server for fast slash command registration.
+- `DISCORD_ALERTS_CHANNEL_ID` - channel that should receive automatic Drust alerts.
+- `DISCORD_RUST_ROLE_ID` - role ID to mention on live Oil Rig alerts.
+- `DRUST_BOT_INTERNAL_TOKEN` - shared secret that must match the worker value.
 - `DRUST_WORKER_URL` - base URL of the worker service, for example `http://localhost:8787`.
 
 ### Web

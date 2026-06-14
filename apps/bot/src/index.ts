@@ -1,6 +1,12 @@
-import { createServer } from 'node:http'
-import type { OperationResult, OperationTarget } from '@drust/domain'
-import { Client, GatewayIntentBits, type ChatInputCommandInteraction, Events } from 'discord.js'
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
+import type { OperationResult, OperationSource, OperationTarget } from '@drust/domain'
+import {
+  ChannelType,
+  Client,
+  GatewayIntentBits,
+  type ChatInputCommandInteraction,
+  Events,
+} from 'discord.js'
 import { commandDefinitions } from './commands.js'
 import { getConfig } from './config.js'
 import { formatOperationStatus, formatPairingStatus, formatStatus } from './format.js'
@@ -8,6 +14,15 @@ import { WorkerClient } from './worker-client.js'
 
 const config = getConfig()
 const worker = new WorkerClient(config.workerUrl)
+let botReady = false
+
+interface OperationAlertPayload {
+  target: OperationTarget
+  source: OperationSource
+  startedAt: string
+  endsAt: string
+  operationId: string
+}
 
 function getValidatedBotConfig(): typeof config & {
   token: string
@@ -95,7 +110,80 @@ async function handleOperationClose(interaction: ChatInputCommandInteraction): P
   })
 }
 
-function createHealthServer(port: number): void {
+async function readJson<T>(request: IncomingMessage): Promise<T> {
+  const chunks: Buffer[] = []
+  for await (const chunk of request) {
+    chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk)
+  }
+
+  if (chunks.length === 0) {
+    return {} as T
+  }
+
+  return JSON.parse(Buffer.concat(chunks).toString('utf8')) as T
+}
+
+function formatAlertTarget(target: OperationTarget): string {
+  if (target === 'small-oil') {
+    return 'Small Oil'
+  }
+
+  if (target === 'large-oil') {
+    return 'Large Oil'
+  }
+
+  return 'Cargo'
+}
+
+function formatAlertTimestamp(timestamp: string): string {
+  return new Date(timestamp).toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function createOperationAlertMessage(payload: OperationAlertPayload, rustRoleId: string | null): string {
+  const rolePrefix = rustRoleId ? `<@&${rustRoleId}> ` : ''
+  return [
+    `${rolePrefix}${formatAlertTarget(payload.target)} triggered`,
+    `Source: ${payload.source}`,
+    `Started: ${formatAlertTimestamp(payload.startedAt)}`,
+    `Crate ETA: ${formatAlertTimestamp(payload.endsAt)}`,
+  ].join('\n')
+}
+
+async function sendOperationAlert(
+  client: Client,
+  payload: OperationAlertPayload,
+  response: ServerResponse,
+): Promise<void> {
+  if (!config.alertsChannelId) {
+    response.writeHead(503, { 'content-type': 'application/json' })
+    response.end(JSON.stringify({ message: 'DISCORD_ALERTS_CHANNEL_ID is not configured.' }))
+    return
+  }
+
+  const channel = await client.channels.fetch(config.alertsChannelId)
+  if (!channel || !channel.isTextBased() || !channel.isSendable() || channel.type === ChannelType.GuildVoice) {
+    response.writeHead(503, { 'content-type': 'application/json' })
+    response.end(JSON.stringify({ message: 'Configured alerts channel is not a text channel.' }))
+    return
+  }
+
+  await channel.send({
+    content: createOperationAlertMessage(payload, config.rustRoleId),
+    allowedMentions: config.rustRoleId
+      ? {
+          roles: [config.rustRoleId],
+        }
+      : undefined,
+  })
+
+  response.writeHead(200, { 'content-type': 'application/json' })
+  response.end(JSON.stringify({ status: 'sent', operationId: payload.operationId }))
+}
+
+function createHealthServer(port: number, client: Client): void {
   const server = createServer(async (request, response) => {
     if (request.method === 'GET' && request.url === '/health') {
       try {
@@ -106,6 +194,10 @@ function createHealthServer(port: number): void {
             service: 'drust-bot',
             status: 'ok',
             discordConfigured: Boolean(config.token),
+            botReady,
+            alertsChannelConfigured: Boolean(config.alertsChannelId),
+            rustRoleConfigured: Boolean(config.rustRoleId),
+            internalAuthConfigured: Boolean(config.internalToken),
             worker: health,
           }),
         )
@@ -117,9 +209,44 @@ function createHealthServer(port: number): void {
             service: 'drust-bot',
             status: 'degraded',
             discordConfigured: Boolean(config.token),
+            botReady,
+            alertsChannelConfigured: Boolean(config.alertsChannelId),
+            rustRoleConfigured: Boolean(config.rustRoleId),
+            internalAuthConfigured: Boolean(config.internalToken),
             workerError: message,
           }),
         )
+      }
+      return
+    }
+
+    if (request.method === 'POST' && request.url === '/internal/alerts/operation') {
+      if (!config.internalToken) {
+        response.writeHead(503, { 'content-type': 'application/json' })
+        response.end(JSON.stringify({ message: 'DRUST_BOT_INTERNAL_TOKEN is not configured.' }))
+        return
+      }
+
+      const authorization = request.headers.authorization ?? ''
+      if (authorization !== `Bearer ${config.internalToken}`) {
+        response.writeHead(401, { 'content-type': 'application/json' })
+        response.end(JSON.stringify({ message: 'Unauthorized.' }))
+        return
+      }
+
+      if (!botReady) {
+        response.writeHead(503, { 'content-type': 'application/json' })
+        response.end(JSON.stringify({ message: 'Discord bot is not ready yet.' }))
+        return
+      }
+
+      try {
+        const payload = await readJson<OperationAlertPayload>(request)
+        await sendOperationAlert(client, payload, response)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown Discord delivery error.'
+        response.writeHead(500, { 'content-type': 'application/json' })
+        response.end(JSON.stringify({ message }))
       }
       return
     }
@@ -136,13 +263,14 @@ function createHealthServer(port: number): void {
 async function main(): Promise<void> {
   const botConfig = getValidatedBotConfig()
 
-  createHealthServer(botConfig.port)
-
   const client = new Client({
     intents: [GatewayIntentBits.Guilds],
   })
 
+  createHealthServer(botConfig.port, client)
+
   client.once(Events.ClientReady, async (readyClient) => {
+    botReady = true
     await readyClient.application.commands.set(commandDefinitions, botConfig.guildId)
     console.log(`[drust-bot] logged in as ${readyClient.user.tag}`)
     console.log(`[drust-bot] slash commands synced to guild ${botConfig.guildId}`)

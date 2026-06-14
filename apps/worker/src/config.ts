@@ -1,7 +1,8 @@
 export interface WorkerConfig {
   port: number
   databaseUrl: string | null
-  discordWebhookUrl: string | null
+  discordBotUrl: string | null
+  discordBotToken: string | null
   discordBotHealthUrl: string | null
   rustplus: {
     serverIp: string | null
@@ -17,7 +18,8 @@ export function getConfig(): WorkerConfig {
   return {
     port: Number(process.env.PORT ?? 8787),
     databaseUrl: process.env.DATABASE_URL ?? null,
-    discordWebhookUrl: process.env.DISCORD_WEBHOOK_URL ?? null,
+    discordBotUrl: process.env.DRUST_DISCORD_BOT_URL ?? null,
+    discordBotToken: process.env.DRUST_BOT_INTERNAL_TOKEN ?? null,
     discordBotHealthUrl: process.env.DRUST_DISCORD_BOT_HEALTH_URL ?? null,
     rustplus: {
       serverIp: process.env.RUSTPLUS_SERVER_IP ?? null,

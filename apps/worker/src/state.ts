@@ -54,19 +54,13 @@ export class WorkerState {
   }
 
   syncDiscordMode({
-    webhookConfigured,
+    botDeliveryConfigured,
     botConnected,
   }: {
-    webhookConfigured: boolean
+    botDeliveryConfigured: boolean
     botConnected: boolean
   }): void {
-    const mode = webhookConfigured
-      ? botConnected
-        ? 'bot-and-webhook'
-        : 'webhook-only'
-      : botConnected
-        ? 'bot-only'
-        : 'disabled'
+    const mode = botDeliveryConfigured || botConnected ? 'bot-only' : 'disabled'
 
     this.setDiscordMode(mode)
   }

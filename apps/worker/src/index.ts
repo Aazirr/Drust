@@ -15,7 +15,7 @@ import type {
 
 const config = getConfig()
 const state = new WorkerState()
-const discord = new DiscordNotifier(config.discordWebhookUrl)
+const discord = new DiscordNotifier(config.discordBotUrl, config.discordBotToken)
 const persistence = new WorkerPersistence(config.databaseUrl)
 const rustplusBridge = new RustplusBridgeManager(state, handleAlarmTriggered)
 const rustplusCredentialsConfigured = Boolean(
@@ -29,7 +29,7 @@ const smartAlarmIdsConfigured = Boolean(
 )
 
 state.syncDiscordMode({
-  webhookConfigured: discord.enabled,
+  botDeliveryConfigured: discord.enabled,
   botConnected: false,
 })
 state.syncRustplusPairingFromConfig({
@@ -50,7 +50,7 @@ async function refreshDiscordStatus(): Promise<void> {
   }
 
   state.syncDiscordMode({
-    webhookConfigured: discord.enabled,
+    botDeliveryConfigured: discord.enabled,
     botConnected,
   })
 }
@@ -105,9 +105,20 @@ async function handleAlarmTriggered(input: AlarmTriggerInput): Promise<void> {
     return
   }
 
-  const message = state.formatDiscordAlarmMessage()
-  await discord.send(message)
-  state.recordDiscordMessage('Discord webhook delivered operation alert.')
+  const snapshot = state.getSnapshot()
+  const operation = snapshot.activeOperation
+  if (!operation) {
+    return
+  }
+
+  await discord.sendOperationAlert({
+    target: operation.target,
+    source: operation.source,
+    startedAt: operation.startedAt,
+    endsAt: operation.endsAt,
+    operationId: operation.operationId,
+  })
+  state.recordDiscordMessage('Discord bot delivered operation alert.')
 }
 
 const server = createServer(async (request: IncomingMessage, response: ServerResponse) => {
@@ -150,11 +161,9 @@ const server = createServer(async (request: IncomingMessage, response: ServerRes
         pairingMode: snapshot.rustplusPairing.mode,
       },
       discord: {
-        webhookConfigured: discord.enabled,
+        deliveryConfigured: discord.enabled,
         botHealthConfigured: Boolean(config.discordBotHealthUrl),
-        botConnected:
-          snapshot.integrations.discord === 'bot-only' ||
-          snapshot.integrations.discord === 'bot-and-webhook',
+        botConnected: snapshot.integrations.discord === 'bot-only',
       },
     })
     return

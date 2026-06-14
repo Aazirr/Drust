@@ -1,12 +1,15 @@
 # Drust Discord Bot
 
-This service connects your Discord bot to the Drust worker API.
+This service connects your Discord bot to the Drust worker API and now owns alert delivery into Discord.
 
 ## Required Environment Variables
 
 - `DISCORD_BOT_TOKEN`
 - `DISCORD_APPLICATION_ID`
 - `DISCORD_GUILD_ID`
+- `DISCORD_ALERTS_CHANNEL_ID`
+- `DISCORD_RUST_ROLE_ID`
+- `DRUST_BOT_INTERNAL_TOKEN`
 - `DRUST_WORKER_URL`
 
 ## Local Start

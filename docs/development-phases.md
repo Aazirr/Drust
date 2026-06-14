@@ -63,6 +63,7 @@ Status: In progress
 - [x] Removed dummy fallback dashboard data so empty and unconfigured states now render as `N/A` or explicit empty states instead of believable placeholder activity.
 - [x] Added Railway Postgres-backed worker persistence for imported Rust+ server pairings and Smart Alarm bindings so they survive worker redeploys.
 - [x] Stabilized worker startup against current Rust+ `AppInfo` decode issues by avoiding the fragile `getInfo()` request that was crashing the deployed bridge.
+- [x] Replaced worker Discord webhooks with bot-owned alert delivery so live Oil Rig alerts now route through the Discord bot service and can ping the Rust role directly.
 
 ## Phase 3 - Validation
 

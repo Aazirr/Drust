@@ -8,7 +8,7 @@ interface PairingStatusResponse {
     pairingMode: string
   }
   discord: {
-    webhookConfigured: boolean
+    deliveryConfigured: boolean
     botHealthConfigured: boolean
     botConnected: boolean
   }

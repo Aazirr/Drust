@@ -56,8 +56,8 @@ Do not build these in the first pass, but they fit the direction:
 
 ## Discord Ping Rules
 
-- When a bound Small Oil Smart Alarm triggers, ping the configured operations role in the configured alerts channel.
-- When a bound Large Oil Smart Alarm triggers, ping the configured operations role in the configured alerts channel.
+- When a bound Small Oil Smart Alarm triggers, the Discord bot pings the configured operations role in the configured alerts channel.
+- When a bound Large Oil Smart Alarm triggers, the Discord bot pings the configured operations role in the configured alerts channel.
 - Starting an operation automatically posts:
   - target
   - trigger source
