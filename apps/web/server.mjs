@@ -52,13 +52,14 @@ if (!existsSync(indexFile)) {
 const server = createServer(async (request, response) => {
   try {
     const requestUrl = new URL(request.url ?? '/', `http://${request.headers.host ?? 'localhost'}`)
-    const filePath = await resolveFilePath(requestUrl.pathname)
-    const isHtml = filePath.endsWith('.html')
+  const filePath = await resolveFilePath(requestUrl.pathname)
+  const isHtml = filePath.endsWith('.html')
+  const isUiAsset = requestUrl.pathname.startsWith('/ui-rework-assets/')
 
-    response.writeHead(200, {
-      'cache-control': isHtml ? 'no-cache' : 'public, max-age=31536000, immutable',
-      'content-type': getContentType(filePath),
-    })
+  response.writeHead(200, {
+    'cache-control': isHtml || isUiAsset ? 'no-cache' : 'public, max-age=31536000, immutable',
+    'content-type': getContentType(filePath),
+  })
 
     createReadStream(filePath).pipe(response)
   } catch (error) {
