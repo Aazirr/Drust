@@ -1,6 +1,6 @@
 # Development Phases
 
-Last updated: 2026-06-13
+Last updated: 2026-06-14
 
 ## Phase 0 - Discovery
 
@@ -68,6 +68,7 @@ Status: In progress
 - [x] Added a refresh performance pass by breaking the worker-bot health-check loop, caching Discord bot reachability in the worker, and restoring the dashboard instantly from the last good snapshot during reloads.
 - [x] Hardened alarm handling so Smart Alarm state changes still open operations and schedule countdowns even if Discord alert delivery fails.
 - [x] Fixed live countdown rendering without manual refresh, added cancel controls for active operations and alarm bindings, normalized service base URLs, and corrected Rust+ alarm binding updates so imported Smart Alarm entity IDs stay live inside the websocket bridge.
+- [x] Versioned the dashboard snapshot cache with the current web build ID so stale UI state no longer survives a deploy.
 - [x] Generated the UI rework asset pack under `apps/web/public/ui-rework-assets` for the new tactical wordmark, map markers, operation art, icons, and display ornaments.
 - [x] Refined the Drust wordmark and loading splash so the brand mark reads as a more distinctive Drust identity instead of a generic tactical logotype.
 - [x] Corrected the Drust wordmark and loading splash to use a literal, readable `DRUST` lockup instead of abstract letter-shape visuals.

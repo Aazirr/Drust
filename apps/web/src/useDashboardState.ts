@@ -11,9 +11,67 @@ import {
 import { startTransition, useEffect, useEffectEvent, useState } from 'react'
 
 const API_BASE_URL = import.meta.env.VITE_DRUST_API_URL ?? 'http://127.0.0.1:8787'
-const SNAPSHOT_CACHE_KEY = 'drust-dashboard-snapshot'
+const SNAPSHOT_CACHE_KEY_PREFIX = 'drust-dashboard-snapshot'
+const SNAPSHOT_CACHE_KEY = `${SNAPSHOT_CACHE_KEY_PREFIX}:${__DRUST_WEB_BUILD_ID__}`
+const SNAPSHOT_CACHE_LEGACY_KEY = 'drust-dashboard-snapshot'
 
 type LoadState = 'loading' | 'ready' | 'offline'
+
+type SnapshotCacheEntry = {
+  buildId: string
+  snapshot: DashboardSnapshot
+}
+
+function getCachedSnapshot(): DashboardSnapshot | null {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  const rawSnapshot = window.sessionStorage.getItem(SNAPSHOT_CACHE_KEY)
+  if (rawSnapshot) {
+    try {
+      const parsed = JSON.parse(rawSnapshot) as Partial<SnapshotCacheEntry>
+      if (parsed.buildId === __DRUST_WEB_BUILD_ID__ && parsed.snapshot) {
+        return withDerivedSnapshot(parsed.snapshot)
+      }
+
+      window.sessionStorage.removeItem(SNAPSHOT_CACHE_KEY)
+    } catch {
+      window.sessionStorage.removeItem(SNAPSHOT_CACHE_KEY)
+    }
+  }
+
+  const legacySnapshot = window.sessionStorage.getItem(SNAPSHOT_CACHE_LEGACY_KEY)
+  if (!legacySnapshot) {
+    return null
+  }
+
+  try {
+    const parsed = JSON.parse(legacySnapshot) as DashboardSnapshot
+    const nextSnapshot = withDerivedSnapshot(parsed)
+    window.sessionStorage.setItem(
+      SNAPSHOT_CACHE_KEY,
+      JSON.stringify({ buildId: __DRUST_WEB_BUILD_ID__, snapshot: nextSnapshot }),
+    )
+    window.sessionStorage.removeItem(SNAPSHOT_CACHE_LEGACY_KEY)
+    return nextSnapshot
+  } catch {
+    window.sessionStorage.removeItem(SNAPSHOT_CACHE_LEGACY_KEY)
+    return null
+  }
+}
+
+function storeSnapshot(snapshot: DashboardSnapshot): void {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  const nextSnapshot = withDerivedSnapshot(snapshot)
+  window.sessionStorage.setItem(
+    SNAPSHOT_CACHE_KEY,
+    JSON.stringify({ buildId: __DRUST_WEB_BUILD_ID__, snapshot: nextSnapshot }),
+  )
+}
 
 async function fetchSnapshot(): Promise<DashboardSnapshot> {
   const response = await fetch(`${API_BASE_URL}/api/snapshot`)
@@ -31,23 +89,19 @@ export function useDashboardState() {
       return createMockSnapshot()
     }
 
-    const cachedSnapshot = window.sessionStorage.getItem(SNAPSHOT_CACHE_KEY)
+    const cachedSnapshot = getCachedSnapshot()
     if (!cachedSnapshot) {
       return createMockSnapshot()
     }
 
-    try {
-      return withDerivedSnapshot(JSON.parse(cachedSnapshot) as DashboardSnapshot)
-    } catch {
-      return createMockSnapshot()
-    }
+    return cachedSnapshot
   })
   const [state, setState] = useState<LoadState>(() => {
     if (typeof window === 'undefined') {
       return 'loading'
     }
 
-    return window.sessionStorage.getItem(SNAPSHOT_CACHE_KEY) ? 'ready' : 'loading'
+    return getCachedSnapshot() ? 'ready' : 'loading'
   })
   const [error, setError] = useState<string | null>(null)
   const [now, setNow] = useState(() => Date.now())
@@ -55,9 +109,7 @@ export function useDashboardState() {
   async function loadSnapshot(): Promise<void> {
     try {
       const nextSnapshot = await fetchSnapshot()
-      if (typeof window !== 'undefined') {
-        window.sessionStorage.setItem(SNAPSHOT_CACHE_KEY, JSON.stringify(nextSnapshot))
-      }
+      storeSnapshot(nextSnapshot)
 
       startTransition(() => {
         setSnapshot(nextSnapshot)
@@ -121,9 +173,7 @@ export function useDashboardState() {
         '/api/events/smart-alarm',
         input,
       )
-      if (typeof window !== 'undefined') {
-        window.sessionStorage.setItem(SNAPSHOT_CACHE_KEY, JSON.stringify(nextSnapshot))
-      }
+      storeSnapshot(nextSnapshot)
       startTransition(() => {
         setSnapshot(withDerivedSnapshot(nextSnapshot))
         setState('ready')
@@ -143,9 +193,7 @@ export function useDashboardState() {
         '/api/actions/timer-extend',
         { minutes },
       )
-      if (typeof window !== 'undefined') {
-        window.sessionStorage.setItem(SNAPSHOT_CACHE_KEY, JSON.stringify(nextSnapshot))
-      }
+      storeSnapshot(nextSnapshot)
       startTransition(() => {
         setSnapshot(withDerivedSnapshot(nextSnapshot))
         setError(null)
@@ -163,9 +211,7 @@ export function useDashboardState() {
         '/api/actions/close-operation',
         input,
       )
-      if (typeof window !== 'undefined') {
-        window.sessionStorage.setItem(SNAPSHOT_CACHE_KEY, JSON.stringify(nextSnapshot))
-      }
+      storeSnapshot(nextSnapshot)
       startTransition(() => {
         setSnapshot(withDerivedSnapshot(nextSnapshot))
         setError(null)
@@ -183,9 +229,7 @@ export function useDashboardState() {
         '/api/rustplus/pairing/start',
         {},
       )
-      if (typeof window !== 'undefined') {
-        window.sessionStorage.setItem(SNAPSHOT_CACHE_KEY, JSON.stringify(nextSnapshot))
-      }
+      storeSnapshot(nextSnapshot)
       startTransition(() => {
         setSnapshot(withDerivedSnapshot(nextSnapshot))
         setState('ready')
@@ -206,9 +250,7 @@ export function useDashboardState() {
         '/api/rustplus/device-binding/start',
         { target },
       )
-      if (typeof window !== 'undefined') {
-        window.sessionStorage.setItem(SNAPSHOT_CACHE_KEY, JSON.stringify(nextSnapshot))
-      }
+      storeSnapshot(nextSnapshot)
       startTransition(() => {
         setSnapshot(withDerivedSnapshot(nextSnapshot))
         setState('ready')
@@ -229,9 +271,7 @@ export function useDashboardState() {
       '/api/rustplus/device-binding/remove',
       { target },
     )
-    if (typeof window !== 'undefined') {
-      window.sessionStorage.setItem(SNAPSHOT_CACHE_KEY, JSON.stringify(nextSnapshot))
-    }
+    storeSnapshot(nextSnapshot)
 
     startTransition(() => {
       setSnapshot(withDerivedSnapshot(nextSnapshot))
