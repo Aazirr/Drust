@@ -64,6 +64,7 @@ Status: In progress
 - [x] Added Railway Postgres-backed worker persistence for imported Rust+ server pairings and Smart Alarm bindings so they survive worker redeploys.
 - [x] Stabilized worker startup against current Rust+ `AppInfo` decode issues by avoiding the fragile `getInfo()` request that was crashing the deployed bridge.
 - [x] Replaced worker Discord webhooks with bot-owned alert delivery so live Oil Rig alerts now route through the Discord bot service and can ping the Rust role directly.
+- [x] Added Smart Alarm countdown scheduling so bot-owned Oil Rig alerts now ping at trigger, 5 minutes left, 2 minutes left, 1 minute left, and timer complete for the fixed 15-minute Oil Rig window.
 
 ## Phase 3 - Validation
 

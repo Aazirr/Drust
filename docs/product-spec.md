@@ -58,15 +58,16 @@ Do not build these in the first pass, but they fit the direction:
 
 - When a bound Small Oil Smart Alarm triggers, the Discord bot pings the configured operations role in the configured alerts channel.
 - When a bound Large Oil Smart Alarm triggers, the Discord bot pings the configured operations role in the configured alerts channel.
+- Small Oil and Large Oil automatic operation timers are fixed at 15 minutes from trigger.
 - Starting an operation automatically posts:
   - target
   - trigger source
   - start time
   - crate-open ETA
 - Countdown pings for the active Oil Rig timer should fire at:
-  - 10 minutes remaining
   - 5 minutes remaining
   - 2 minutes remaining
+  - 1 minute remaining
   - 0 minutes remaining
 - Duplicate alarm events should be debounced so one trigger does not create multiple operations.
 - Marker-based CH47 alerts must stay disabled until live validation proves they are reliable enough.

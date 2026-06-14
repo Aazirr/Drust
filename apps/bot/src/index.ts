@@ -17,11 +17,13 @@ const worker = new WorkerClient(config.workerUrl)
 let botReady = false
 
 interface OperationAlertPayload {
+  kind: 'triggered' | 'countdown' | 'completed'
   target: OperationTarget
   source: OperationSource
   startedAt: string
   endsAt: string
   operationId: string
+  remainingMinutes?: number
 }
 
 function getValidatedBotConfig(): typeof config & {
@@ -144,6 +146,24 @@ function formatAlertTimestamp(timestamp: string): string {
 
 function createOperationAlertMessage(payload: OperationAlertPayload, rustRoleId: string | null): string {
   const rolePrefix = rustRoleId ? `<@&${rustRoleId}> ` : ''
+
+  if (payload.kind === 'countdown') {
+    return [
+      `${rolePrefix}${formatAlertTarget(payload.target)} ${payload.remainingMinutes} minute${payload.remainingMinutes === 1 ? '' : 's'} left`,
+      `Source: ${payload.source}`,
+      `Crate ETA: ${formatAlertTimestamp(payload.endsAt)}`,
+    ].join('\n')
+  }
+
+  if (payload.kind === 'completed') {
+    return [
+      `${rolePrefix}${formatAlertTarget(payload.target)} timer complete`,
+      `Source: ${payload.source}`,
+      `Started: ${formatAlertTimestamp(payload.startedAt)}`,
+      '15 minutes elapsed. Crates should be open now.',
+    ].join('\n')
+  }
+
   return [
     `${rolePrefix}${formatAlertTarget(payload.target)} triggered`,
     `Source: ${payload.source}`,

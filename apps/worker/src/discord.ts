@@ -1,11 +1,13 @@
 import type { OperationSource, OperationTarget } from '@drust/domain'
 
-interface BotOperationAlertPayload {
+export interface BotOperationAlertPayload {
+  kind: 'triggered' | 'countdown' | 'completed'
   target: OperationTarget
   source: OperationSource
   startedAt: string
   endsAt: string
   operationId: string
+  remainingMinutes?: number
 }
 
 export class DiscordNotifier {

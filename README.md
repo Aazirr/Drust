@@ -20,7 +20,7 @@ The MVP focuses on Oil Rig operations, Smart Alarm triggers, timer coordination,
 - Web dashboard with Overview, Map View, and Configuration pages.
 - Worker endpoints for dashboard state, manual alarm triggers, timer control, and operation closing.
 - Rust+ bridge bootstrap with Smart Alarm ingestion support.
-- Discord bot delivery path for live operation alerts and Rust role pings.
+- Discord bot delivery path for live operation alerts, Rust role pings, and 5/2/1/done countdown callouts for Smart Alarm-started Oil Rig runs.
 - Discord bot service with guild-scoped slash commands for status, pairing checks, manual timer start, timer extension, operation close, and private worker-to-bot alert delivery.
 
 ## Local Development

@@ -1,6 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { getConfig } from './config.js'
-import { DiscordNotifier } from './discord.js'
+import { DiscordNotifier, type BotOperationAlertPayload } from './discord.js'
 import { WorkerPersistence } from './persistence.js'
 import { RustplusBridgeManager } from './rustplus.js'
 import { WorkerState } from './state.js'
@@ -27,6 +27,8 @@ const rustplusCredentialsConfigured = Boolean(
 const smartAlarmIdsConfigured = Boolean(
   config.rustplus.smallOilEntityId && config.rustplus.largeOilEntityId,
 )
+let countdownTimers: ReturnType<typeof setTimeout>[] = []
+let scheduledOperationId: string | null = null
 
 state.syncDiscordMode({
   botDeliveryConfigured: discord.enabled,
@@ -112,6 +114,7 @@ async function handleAlarmTriggered(input: AlarmTriggerInput): Promise<void> {
   }
 
   await discord.sendOperationAlert({
+    kind: 'triggered',
     target: operation.target,
     source: operation.source,
     startedAt: operation.startedAt,
@@ -119,6 +122,93 @@ async function handleAlarmTriggered(input: AlarmTriggerInput): Promise<void> {
     operationId: operation.operationId,
   })
   state.recordDiscordMessage('Discord bot delivered operation alert.')
+  syncCountdownSchedule()
+}
+
+function clearCountdownSchedule(): void {
+  countdownTimers.forEach((timer) => clearTimeout(timer))
+  countdownTimers = []
+  scheduledOperationId = null
+}
+
+async function sendCountdownAlert(payload: BotOperationAlertPayload, activityMessage: string): Promise<void> {
+  if (!discord.enabled) {
+    return
+  }
+
+  await discord.sendOperationAlert(payload)
+  state.recordDiscordMessage(activityMessage)
+}
+
+function syncCountdownSchedule(): void {
+  clearCountdownSchedule()
+
+  const snapshot = state.getSnapshot()
+  const operation = snapshot.activeOperation
+  if (!operation || operation.status !== 'active' || operation.source !== 'smart-alarm') {
+    return
+  }
+
+  if (operation.target !== 'small-oil' && operation.target !== 'large-oil') {
+    return
+  }
+
+  scheduledOperationId = operation.operationId
+  const checkpoints = [
+    { kind: 'countdown' as const, remainingMinutes: 5, activityMessage: 'Discord bot delivered 5 minute warning.' },
+    { kind: 'countdown' as const, remainingMinutes: 2, activityMessage: 'Discord bot delivered 2 minute warning.' },
+    { kind: 'countdown' as const, remainingMinutes: 1, activityMessage: 'Discord bot delivered 1 minute warning.' },
+    { kind: 'completed' as const, remainingMinutes: 0, activityMessage: 'Discord bot delivered timer complete alert.' },
+  ]
+  const endsAtMs = new Date(operation.endsAt).getTime()
+
+  checkpoints.forEach((checkpoint) => {
+    const triggerAtMs =
+      checkpoint.kind === 'completed'
+        ? endsAtMs
+        : endsAtMs - checkpoint.remainingMinutes * 60 * 1000
+    const delayMs = triggerAtMs - Date.now()
+
+    if (delayMs <= 0) {
+      return
+    }
+
+    const timer = setTimeout(() => {
+      void (async () => {
+        const currentSnapshot = state.getSnapshot()
+        const currentOperation = currentSnapshot.activeOperation
+        if (
+          !currentOperation ||
+          currentOperation.operationId !== operation.operationId ||
+          currentOperation.status !== 'active' ||
+          scheduledOperationId !== operation.operationId
+        ) {
+          return
+        }
+
+        await sendCountdownAlert(
+          {
+            kind: checkpoint.kind,
+            target: currentOperation.target,
+            source: currentOperation.source,
+            startedAt: currentOperation.startedAt,
+            endsAt: currentOperation.endsAt,
+            operationId: currentOperation.operationId,
+            remainingMinutes: checkpoint.kind === 'countdown' ? checkpoint.remainingMinutes : undefined,
+          },
+          checkpoint.activityMessage,
+        )
+      })().catch((error) => {
+        const message = error instanceof Error ? error.message : 'Unknown Discord countdown delivery error.'
+        state.updateServerConnection({
+          lastError: message,
+          lastHeartbeatAt: new Date().toISOString(),
+        })
+      })
+    }, delayMs)
+
+    countdownTimers.push(timer)
+  })
 }
 
 const server = createServer(async (request: IncomingMessage, response: ServerResponse) => {
@@ -229,19 +319,25 @@ const server = createServer(async (request: IncomingMessage, response: ServerRes
 
   if (request.method === 'POST' && requestUrl.pathname === '/api/actions/start-operation') {
     const payload = await readJson<StartOperationInput>(request)
-    writeJson(response, 200, state.startOperation(payload))
+    const nextSnapshot = state.startOperation(payload)
+    syncCountdownSchedule()
+    writeJson(response, 200, nextSnapshot)
     return
   }
 
   if (request.method === 'POST' && requestUrl.pathname === '/api/actions/timer-extend') {
     const payload = await readJson<{ minutes: number }>(request)
-    writeJson(response, 200, state.extendTimer(payload.minutes ?? 0))
+    const nextSnapshot = state.extendTimer(payload.minutes ?? 0)
+    syncCountdownSchedule()
+    writeJson(response, 200, nextSnapshot)
     return
   }
 
   if (request.method === 'POST' && requestUrl.pathname === '/api/actions/close-operation') {
     const payload = await readJson<OperationCloseInput>(request)
-    writeJson(response, 200, state.closeOperation(payload))
+    const nextSnapshot = state.closeOperation(payload)
+    syncCountdownSchedule()
+    writeJson(response, 200, nextSnapshot)
     return
   }
 
