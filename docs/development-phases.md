@@ -62,6 +62,7 @@ Status: In progress
 - [x] Expanded Discord integration status so the web app can distinguish webhook-only, bot-only, and bot-plus-webhook deployments.
 - [x] Removed dummy fallback dashboard data so empty and unconfigured states now render as `N/A` or explicit empty states instead of believable placeholder activity.
 - [x] Added Railway Postgres-backed worker persistence for imported Rust+ server pairings and Smart Alarm bindings so they survive worker redeploys.
+- [x] Stabilized worker startup against current Rust+ `AppInfo` decode issues by avoiding the fragile `getInfo()` request that was crashing the deployed bridge.
 
 ## Phase 3 - Validation
 

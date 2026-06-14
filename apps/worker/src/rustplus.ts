@@ -140,26 +140,6 @@ export class RustplusBridgeManager {
       }
 
       this.state.setRustplusMode('connected')
-      client.getInfo((message: any) => {
-        if (currentSession !== this.sessionId) {
-          return
-        }
-
-        const info = message?.response?.info
-        if (!info) {
-          return
-        }
-
-        this.state.updateServerConnection({
-          serverName: info.name ?? this.state.getSnapshot().serverConnection.serverName,
-          mapSize: info.mapSize ?? this.state.getSnapshot().serverConnection.mapSize,
-          wipeTime: info.wipeTime
-            ? new Date(info.wipeTime * 1000).toISOString()
-            : this.state.getSnapshot().serverConnection.wipeTime,
-          lastHeartbeatAt: new Date().toISOString(),
-          lastError: null,
-        })
-      })
 
       client.getTime((message: any) => {
         if (currentSession !== this.sessionId) {
