@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 100" role="img" aria-labelledby="title desc">
+  <title id="title">Radar noise</title>
+  <desc id="desc">Tiny static field with a single signal line.</desc>
+  <defs>
+    <filter id="noise">
+      <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="1" stitchTiles="stitch"/>
+      <feComponentTransfer>
+        <feFuncA type="table" tableValues="0 0.14"/>
+      </feComponentTransfer>
+    </filter>
+  </defs>
+  <rect width="140" height="100" fill="#081015"/>
+  <rect width="140" height="100" filter="url(#noise)" opacity="0.45"/>
+  <path d="M8 76h124" stroke="#d9a35f" stroke-opacity="0.22" stroke-width="2"/>
+  <path d="M26 26h22M98 26h18" stroke="#d9a35f" stroke-opacity="0.16" stroke-width="1.5" stroke-linecap="round"/>
+</svg>

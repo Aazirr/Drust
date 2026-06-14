@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18" role="img" aria-labelledby="title desc">
+  <title id="title">Config navigation</title>
+  <desc id="desc">Gear icon for configuration navigation.</desc>
+  <path d="M9 4.2 10 2h2l.6 2.2 1.8 1.1 2.1-.4.9 1.8-1.6 1.5v2l1.6 1.5-.9 1.8-2.1-.4-1.8 1.1L12 16H10l-1-2.2-1.8-1.1-2.1.4-.9-1.8 1.6-1.5v-2L4.2 7.4 5.1 5.6l2.1.4L9 4.2z" fill="none" stroke="#d9a35f" stroke-width="1.1" stroke-linejoin="round"/>
+  <circle cx="9" cy="9" r="2.1" fill="#d9a35f"/>
+</svg>

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" role="img" aria-labelledby="title desc">
+  <title id="title">Connected</title>
+  <desc id="desc">Filled green connected status icon.</desc>
+  <circle cx="6" cy="6" r="4.5" fill="#6dc6a2"/>
+</svg>

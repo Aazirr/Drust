@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 120" role="img" aria-labelledby="title desc">
+  <title id="title">Drust wordmark</title>
+  <desc id="desc">Bold tactical DRUST wordmark in amber on transparent background.</desc>
+  <rect width="560" height="120" fill="none"/>
+  <path d="M34 30h54c19 0 31 4 39 12s12 19 12 33-4 26-12 34-20 11-39 11H34V30zm38 27v36h14c11 0 18-2 22-6s6-10 6-18-2-14-6-18-11-6-22-6H72z" fill="#d9a35f"/>
+  <path d="M165 30h49c14 0 25 3 32 10 7 6 11 16 11 29 0 12-4 22-12 29-8 6-19 9-35 9h-45V30zm37 25v31h9c8 0 14-1 17-5 3-3 5-8 5-15 0-7-2-12-6-15-4-4-9-6-18-6h-7z" fill="#d9a35f" opacity="0.9"/>
+  <path d="M310 30h74l-6 22h-38v16h34v22h-34v30h-30V30z" fill="#d9a35f"/>
+  <path d="M412 30h30v61c0 11 5 16 16 16s16-5 16-16V30h30v63c0 13-4 24-13 32-9 8-21 12-33 12-13 0-24-4-33-12-9-8-13-19-13-32V30z" fill="#d9a35f"/>
+  <path d="M520 30h6v22h-6z" fill="#d9a35f"/>
+  <path d="M506 30h12v22h-12z" fill="#d9a35f" opacity="0.85"/>
+  <path d="M26 100h508" stroke="#d9a35f" stroke-opacity="0.18" stroke-width="2"/>
+</svg>

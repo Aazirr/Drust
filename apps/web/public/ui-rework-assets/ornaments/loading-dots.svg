@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 12" role="img" aria-labelledby="title desc">
+  <title id="title">Loading dots</title>
+  <desc id="desc">Three amber dots for a minimal loading indicator.</desc>
+  <circle cx="8" cy="6" r="2.2" fill="#d9a35f"/>
+  <circle cx="24" cy="6" r="2.2" fill="#d9a35f" opacity="0.7"/>
+  <circle cx="40" cy="6" r="2.2" fill="#d9a35f" opacity="0.45"/>
+</svg>

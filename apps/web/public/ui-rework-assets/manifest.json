@@ -1,0 +1,48 @@
+{
+  "brand": {
+    "wordmark": "brand/drust-wordmark.svg",
+    "favicon": "brand/drust-favicon.svg",
+    "loadingSplash": "brand/loading-splash.svg"
+  },
+  "backgrounds": {
+    "mapTile": "backgrounds/map-tile.svg",
+    "hexGrid": "backgrounds/hex-grid.svg",
+    "grain": "backgrounds/grain.svg",
+    "scanLines": "backgrounds/scan-lines.svg",
+    "radarNoise": "backgrounds/radar-noise.svg"
+  },
+  "icons": {
+    "connectionConnected": "icons/connection-connected.svg",
+    "connectionDegraded": "icons/connection-degraded.svg",
+    "connectionDisconnected": "icons/connection-disconnected.svg",
+    "alarmTrigger": "icons/alarm-trigger.svg",
+    "role": "icons/role.svg",
+    "checklist": "icons/checklist.svg",
+    "navOverview": "icons/nav-overview.svg",
+    "navMap": "icons/nav-map.svg",
+    "navConfig": "icons/nav-config.svg",
+    "cancel": "icons/cancel.svg"
+  },
+  "markers": {
+    "smallOil": "markers/small-oil.svg",
+    "largeOil": "markers/large-oil.svg",
+    "cargoShip": "markers/cargo-ship.svg",
+    "teamAlive": "markers/team-alive.svg",
+    "teamDead": "markers/team-dead.svg",
+    "genericPin": "markers/generic-pin.svg",
+    "ch47": "markers/ch47.svg",
+    "patrolHeli": "markers/patrol-heli.svg"
+  },
+  "operation": {
+    "timerRing": "operation/timer-ring.svg",
+    "heroSmallOil": "operation/hero-small-oil.svg",
+    "heroLargeOil": "operation/hero-large-oil.svg",
+    "heroCargo": "operation/hero-cargo.svg",
+    "idleRadar": "operation/idle-radar.svg"
+  },
+  "ornaments": {
+    "cornerBracket": "ornaments/corner-bracket.svg",
+    "statusGlow": "ornaments/status-glow.svg",
+    "loadingDots": "ornaments/loading-dots.svg"
+  }
+}

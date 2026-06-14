@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18" role="img" aria-labelledby="title desc">
+  <title id="title">Overview navigation</title>
+  <desc id="desc">Crosshair eye icon for overview navigation.</desc>
+  <circle cx="9" cy="9" r="5.5" fill="none" stroke="#d9a35f" stroke-width="1.2"/>
+  <path d="M1.5 9h15M9 1.5v15" stroke="#d9a35f" stroke-width="1.2" stroke-linecap="round"/>
+  <circle cx="9" cy="9" r="1.5" fill="#d9a35f"/>
+</svg>

@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" role="img" aria-labelledby="title desc">
+  <title id="title">Tactical map tile</title>
+  <desc id="desc">Stylized island silhouette on a dark tactical grid.</desc>
+  <defs>
+    <linearGradient id="water" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#081015"/>
+      <stop offset="1" stop-color="#0d1a21"/>
+    </linearGradient>
+    <linearGradient id="land" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#213843"/>
+      <stop offset="1" stop-color="#1a2a33"/>
+    </linearGradient>
+    <pattern id="hex" width="72" height="62.35" patternUnits="userSpaceOnUse">
+      <path d="M18 1 36 11.5v21L18 43 0 32.5v-21L18 1zm36 0 18 10.5v21L54 43 36 32.5v-21L54 1z" fill="none" stroke="#d9a35f" stroke-opacity="0.08" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect width="1600" height="1000" fill="url(#water)"/>
+  <rect width="1600" height="1000" fill="url(#hex)"/>
+  <path d="M188 244c84-52 171-72 260-61 54 7 97 31 131 72 41 48 96 82 166 101 89 24 154 69 195 134 34 55 47 118 37 188-6 41-23 73-50 97-34 31-83 55-146 71-87 22-176 29-266 20-92-8-165-30-220-66-52-35-91-84-118-147-31-72-47-139-49-201-2-69 19-128 60-178z" fill="url(#land)" opacity="0.92"/>
+  <path d="M1122 176c43-18 89-19 136-5 55 17 98 50 130 100 32 49 52 101 60 156 8 48 4 93-11 136-17 48-48 88-94 119-58 39-120 56-186 52-72-4-131-26-177-66-42-37-67-81-76-132-11-56-6-112 16-169 29-77 83-133 162-171z" fill="url(#land)" opacity="0.82"/>
+  <path d="M320 382c84-23 176-11 275 36 81 39 146 53 195 43 49-10 106-31 170-63 58-29 118-42 181-39 52 2 101 15 147 38" fill="none" stroke="#d9a35f" stroke-opacity="0.08" stroke-width="3"/>
+  <path d="M256 640c98-38 194-49 289-33 73 13 149 10 227-9 92-22 177-25 254-8 69 15 130 47 183 95" fill="none" stroke="#d9a35f" stroke-opacity="0.08" stroke-width="3"/>
+  <g fill="#d9a35f" fill-opacity="0.08">
+    <circle cx="486" cy="385" r="14"/>
+    <circle cx="542" cy="338" r="8"/>
+    <circle cx="1250" cy="310" r="12"/>
+    <circle cx="930" cy="648" r="10"/>
+    <circle cx="1110" cy="545" r="16"/>
+  </g>
+</svg>

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" role="img" aria-labelledby="title desc">
+  <title id="title">Checklist</title>
+  <desc id="desc">Checkmark icon for checklist items.</desc>
+  <path d="M3 8.4 6.2 11 13 4.5" fill="none" stroke="#d9a35f" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

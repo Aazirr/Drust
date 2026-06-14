@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" role="img" aria-labelledby="title desc">
+  <title id="title">Disconnected</title>
+  <desc id="desc">Red disconnected status icon.</desc>
+  <circle cx="6" cy="6" r="4.5" fill="none" stroke="#ef8d74" stroke-width="1.2"/>
+  <path d="M4 4 8 8M8 4 4 8" stroke="#ef8d74" stroke-width="1.2" stroke-linecap="round"/>
+</svg>

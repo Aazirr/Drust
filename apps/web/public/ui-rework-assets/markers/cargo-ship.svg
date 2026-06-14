@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-labelledby="title desc">
+  <title id="title">Cargo ship marker</title>
+  <desc id="desc">Cargo ship silhouette marker.</desc>
+  <g fill="none" stroke="#d9a35f" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M5 22h22l-3 5H8z" fill="#d9a35f" fill-opacity="0.16"/>
+    <path d="M9 22v-8h7v8"/>
+    <path d="M16 14h4l2 3"/>
+    <path d="M22 22V11h2v11"/>
+    <path d="M7 27h18"/>
+    <path d="M12 17h3M18 17h2"/>
+  </g>
+</svg>

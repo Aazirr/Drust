@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" role="img" aria-labelledby="title desc">
+  <title id="title">Team dead marker</title>
+  <desc id="desc">Gray ringed team presence marker.</desc>
+  <circle cx="8" cy="8" r="5.5" fill="#728793" fill-opacity="0.16" stroke="#728793" stroke-width="1.5"/>
+  <circle cx="8" cy="8" r="1.5" fill="#728793"/>
+</svg>

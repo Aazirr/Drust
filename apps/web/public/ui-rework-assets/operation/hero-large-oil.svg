@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 140" role="img" aria-labelledby="title desc">
+  <title id="title">Large Oil hero</title>
+  <desc id="desc">Schematic large oil rig illustration.</desc>
+  <g fill="none" stroke="#d9a35f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M24 108h92"/>
+    <path d="M34 24h72l16 24H18z" fill="#d9a35f" fill-opacity="0.14"/>
+    <path d="M26 48h88l10 18H16z" fill="#d9a35f" fill-opacity="0.09"/>
+    <path d="M28 66 24 108M112 66l4 42M38 48l-8 60M102 48l8 60"/>
+    <path d="M46 24v24M94 24v24M34 36h72"/>
+    <path d="M42 84h56"/>
+    <path d="M40 56h60"/>
+  </g>
+</svg>

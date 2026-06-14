@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8" role="img" aria-labelledby="title desc">
+  <title id="title">Scan lines</title>
+  <desc id="desc">Thin horizontal display scan lines.</desc>
+  <rect width="8" height="8" fill="none"/>
+  <path d="M0 1.5h8M0 5.5h8" stroke="#ffffff" stroke-opacity="0.06" stroke-width="0.5"/>
+</svg>

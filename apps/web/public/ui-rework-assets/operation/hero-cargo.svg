@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 140" role="img" aria-labelledby="title desc">
+  <title id="title">Cargo hero</title>
+  <desc id="desc">Schematic cargo ship illustration.</desc>
+  <g fill="none" stroke="#d9a35f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M20 92h102l-14 22H34z" fill="#d9a35f" fill-opacity="0.14"/>
+    <path d="M42 92V58h28v34"/>
+    <path d="M70 62h18l14 10"/>
+    <path d="M98 92V44h8v48"/>
+    <path d="M26 116h88"/>
+    <path d="M52 72h12M74 72h10"/>
+  </g>
+</svg>

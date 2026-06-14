@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" role="img" aria-labelledby="title desc">
+  <title id="title">CH47 marker</title>
+  <desc id="desc">Front-facing helicopter marker.</desc>
+  <g fill="none" stroke="#d9a35f" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 4v6"/>
+    <path d="M5 10h14"/>
+    <path d="M8 14h8"/>
+    <path d="M9 9 7 7M15 9l2-2"/>
+    <path d="M7 15 5 18M17 15l2 3"/>
+    <path d="M10 12h4l2 3H8z" fill="#d9a35f" fill-opacity="0.16"/>
+  </g>
+</svg>

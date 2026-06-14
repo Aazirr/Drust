@@ -1,0 +1,66 @@
+:root {
+  --drust-amber: #d9a35f;
+  --drust-amber-soft: rgba(217, 163, 95, 0.12);
+  --drust-ink: #081015;
+  --drust-ink-soft: #15242d;
+  --drust-green: #6dc6a2;
+  --drust-red: #ef8d74;
+}
+
+.drust-scan-lines {
+  background-image: url('./backgrounds/scan-lines.svg');
+  background-repeat: repeat;
+  background-size: 100% 10px;
+}
+
+.drust-grain {
+  background-image: url('./backgrounds/grain.svg');
+  background-repeat: repeat;
+}
+
+.drust-hex-grid {
+  background-image: url('./backgrounds/hex-grid.svg');
+  background-repeat: repeat;
+}
+
+.drust-loading-dots {
+  display: inline-block;
+  width: 48px;
+  height: 12px;
+  background-image: url('./ornaments/loading-dots.svg');
+  background-repeat: no-repeat;
+  background-size: contain;
+}
+
+.drust-corner-bracket {
+  background-image: url('./ornaments/corner-bracket.svg');
+  background-repeat: no-repeat;
+  background-size: contain;
+}
+
+.drust-status-glow {
+  background-image: url('./ornaments/status-glow.svg');
+  background-repeat: no-repeat;
+  background-size: contain;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .drust-loading-dots {
+    animation: drust-loading-dots 1.2s ease-in-out infinite;
+  }
+}
+
+@keyframes drust-loading-dots {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+
+  33% {
+    opacity: 1;
+  }
+
+  66% {
+    opacity: 0.75;
+  }
+}

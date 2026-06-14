@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-labelledby="title desc">
+  <title id="title">Large Oil marker</title>
+  <desc id="desc">Large oil rig silhouette marker.</desc>
+  <g fill="none" stroke="#d9a35f" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M5 25h22"/>
+    <path d="M8 5h16l3 6H5z" fill="#d9a35f" fill-opacity="0.16"/>
+    <path d="M7 11h18l3 6H4z" fill="#d9a35f" fill-opacity="0.1"/>
+    <path d="M8 11 5 25M24 11l3 14M10 11 8 25M22 11l2 14"/>
+    <path d="M11 5v6M21 5v6M12 17h8"/>
+    <path d="M10 9h12"/>
+  </g>
+</svg>

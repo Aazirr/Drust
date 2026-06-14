@@ -68,6 +68,7 @@ Status: In progress
 - [x] Added a refresh performance pass by breaking the worker-bot health-check loop, caching Discord bot reachability in the worker, and restoring the dashboard instantly from the last good snapshot during reloads.
 - [x] Hardened alarm handling so Smart Alarm state changes still open operations and schedule countdowns even if Discord alert delivery fails.
 - [x] Fixed live countdown rendering without manual refresh, added cancel controls for active operations and alarm bindings, normalized service base URLs, and corrected Rust+ alarm binding updates so imported Smart Alarm entity IDs stay live inside the websocket bridge.
+- [x] Generated the UI rework asset pack under `apps/web/public/ui-rework-assets` for the new tactical wordmark, map markers, operation art, icons, and display ornaments.
 
 ## Phase 3 - Validation
 
