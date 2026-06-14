@@ -26,16 +26,19 @@
     <path d="M0 180h1440M0 360h1440M0 540h1440M0 720h1440" stroke="#d9a35f" stroke-width="1"/>
     <path d="M180 0v900M360 0v900M540 0v900M720 0v900M900 0v900M1080 0v900M1260 0v900" stroke="#d9a35f" stroke-width="1"/>
   </g>
-  <g transform="translate(420 230)">
+  <g transform="translate(420 220)">
     <circle cx="82" cy="82" r="60" fill="#081015" stroke="url(#amber)" stroke-width="10"/>
-    <path d="M49 86c0-16 6-29 18-39 11-9 23-13 36-12 15 1 27 7 36 16 8 9 12 21 12 36 0 15-5 27-14 37-9 9-22 14-38 14-17 0-30-5-39-14-5-5-8-10-9-15-1-5-2-10-2-15z" fill="#d9a35f"/>
-    <path d="M68 49c1-6 6-10 12-10 7 0 12 5 14 11 1 3 0 5-2 7-2 2-5 2-8 2-7 0-14-4-16-10z" fill="#d9a35f"/>
-    <circle cx="104" cy="66" r="2.5" fill="#081015"/>
-    <path d="M42 95c16-7 31-9 46-6" fill="none" stroke="#081015" stroke-width="2.2" stroke-linecap="round"/>
-    <path d="M43 105c14-4 28-3 42 3" fill="none" stroke="#081015" stroke-width="2.2" stroke-linecap="round"/>
-    <path d="M66 113c18 4 33 2 44-5 10-6 16-14 18-23" fill="none" stroke="#d9a35f" stroke-width="2.4" stroke-linecap="round"/>
-    <path d="M83 128c3 10 6 17 6 27" fill="none" stroke="#d9a35f" stroke-width="2.4" stroke-linecap="round"/>
-    <path d="M78 129c-10 11-16 21-18 31" fill="none" stroke="#d9a35f" stroke-width="2.4" stroke-linecap="round"/>
+    <ellipse cx="67" cy="84" rx="24" ry="16" fill="#d9a35f"/>
+    <ellipse cx="92" cy="74" rx="20" ry="15" fill="#d9a35f"/>
+    <circle cx="77" cy="58" r="11" fill="#d9a35f"/>
+    <path d="M72 47c1-6 4-10 9-10 6 0 9 4 11 10 0 2-.1 4-1.4 5.2-1 .9-2.3 1.3-4 1.3-4.1 0-7.7-1.5-9.6-6.5z" fill="#d9a35f"/>
+    <path d="M87 70c1.8-.9 4.1-1.2 6.5-.9" fill="none" stroke="#081015" stroke-width="1.2" stroke-linecap="round"/>
+    <path d="M86.7 71.7c1.8-.4 3.7-.2 5.6.5" fill="none" stroke="#081015" stroke-width="1.2" stroke-linecap="round"/>
+    <path d="M86.5 72.8c1.2.2 2.2.7 3 1.5" fill="none" stroke="#081015" stroke-width="1.2" stroke-linecap="round"/>
+    <circle cx="91" cy="73.2" r="1" fill="#081015"/>
+    <path d="M56.5 87.7c-1.1 1.2-1.7 2.5-1.8 4.1 0 2.1 1.2 3.8 3.4 4.8 2 .9 4.5 1 7.1.4 2.7-.6 4.7-1.8 6.3-3.7 1.2-1.5 1.9-3.1 2.1-4.9" fill="none" stroke="#d9a35f" stroke-width="1.7" stroke-linecap="round"/>
+    <path d="M56 95c-10 4-17 11-20 20" fill="none" stroke="#d9a35f" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M57 100c2 10 3 18 3 29" fill="none" stroke="#d9a35f" stroke-width="2.5" stroke-linecap="round"/>
   </g>
   <text x="588" y="393"
         fill="#d9a35f"
