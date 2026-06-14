@@ -71,6 +71,7 @@ Status: In progress
 - [x] Generated the UI rework asset pack under `apps/web/public/ui-rework-assets` for the new tactical wordmark, map markers, operation art, icons, and display ornaments.
 - [x] Refined the Drust wordmark and loading splash so the brand mark reads as a more distinctive Drust identity instead of a generic tactical logotype.
 - [x] Corrected the Drust wordmark and loading splash to use a literal, readable `DRUST` lockup instead of abstract letter-shape visuals.
+- [x] Replaced the Drust monogram with a mouse-inspired circular badge based on the provided reference image.
 
 ## Phase 3 - Validation
 
