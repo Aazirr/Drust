@@ -69,6 +69,7 @@ Status: In progress
 - [x] Hardened alarm handling so Smart Alarm state changes still open operations and schedule countdowns even if Discord alert delivery fails.
 - [x] Fixed live countdown rendering without manual refresh, added cancel controls for active operations and alarm bindings, normalized service base URLs, and corrected Rust+ alarm binding updates so imported Smart Alarm entity IDs stay live inside the websocket bridge.
 - [x] Generated the UI rework asset pack under `apps/web/public/ui-rework-assets` for the new tactical wordmark, map markers, operation art, icons, and display ornaments.
+- [x] Refined the Drust wordmark and loading splash so the brand mark reads as a more distinctive Drust identity instead of a generic tactical logotype.
 
 ## Phase 3 - Validation
 

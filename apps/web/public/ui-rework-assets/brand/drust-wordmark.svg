@@ -1,12 +1,33 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 120" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 160" role="img" aria-labelledby="title desc">
   <title id="title">Drust wordmark</title>
-  <desc id="desc">Bold tactical DRUST wordmark in amber on transparent background.</desc>
-  <rect width="560" height="120" fill="none"/>
-  <path d="M34 30h54c19 0 31 4 39 12s12 19 12 33-4 26-12 34-20 11-39 11H34V30zm38 27v36h14c11 0 18-2 22-6s6-10 6-18-2-14-6-18-11-6-22-6H72z" fill="#d9a35f"/>
-  <path d="M165 30h49c14 0 25 3 32 10 7 6 11 16 11 29 0 12-4 22-12 29-8 6-19 9-35 9h-45V30zm37 25v31h9c8 0 14-1 17-5 3-3 5-8 5-15 0-7-2-12-6-15-4-4-9-6-18-6h-7z" fill="#d9a35f" opacity="0.9"/>
-  <path d="M310 30h74l-6 22h-38v16h34v22h-34v30h-30V30z" fill="#d9a35f"/>
-  <path d="M412 30h30v61c0 11 5 16 16 16s16-5 16-16V30h30v63c0 13-4 24-13 32-9 8-21 12-33 12-13 0-24-4-33-12-9-8-13-19-13-32V30z" fill="#d9a35f"/>
-  <path d="M520 30h6v22h-6z" fill="#d9a35f"/>
-  <path d="M506 30h12v22h-12z" fill="#d9a35f" opacity="0.85"/>
-  <path d="M26 100h508" stroke="#d9a35f" stroke-opacity="0.18" stroke-width="2"/>
+  <desc id="desc">Tactical Drust logotype with a shielded D monogram and condensed wordmark.</desc>
+  <defs>
+    <linearGradient id="amber" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e4b06a"/>
+      <stop offset="1" stop-color="#d78f3d"/>
+    </linearGradient>
+    <linearGradient id="core" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#111d24"/>
+      <stop offset="1" stop-color="#081015"/>
+    </linearGradient>
+  </defs>
+  <rect width="760" height="160" fill="none"/>
+  <g transform="translate(18 18)">
+    <path d="M62 0 110 16v52c0 28-12 49-36 67-24-18-36-39-36-67V16z" fill="url(#amber)"/>
+    <path d="M62 16c17 0 31 5 40 16 9 10 14 24 14 42 0 17-5 31-14 42-9 10-23 16-40 16s-31-6-40-16C13 105 8 91 8 74c0-18 5-32 14-42C31 21 45 16 62 16z" fill="url(#core)"/>
+    <path d="M62 36c10 0 19 3 25 10 6 6 9 15 9 28 0 12-3 22-9 28-6 7-15 10-25 10H44V36zm-2 16v44h8c8 0 13-2 17-6 3-4 5-10 5-16 0-8-2-13-5-17-4-3-9-5-17-5z" fill="#d9a35f"/>
+    <path d="M26 126h72" stroke="#d9a35f" stroke-opacity="0.22" stroke-width="2"/>
+    <path d="M16 32h20M88 32h20M12 92h16M96 92h16" stroke="#d9a35f" stroke-opacity="0.22" stroke-width="3" stroke-linecap="round"/>
+    <path d="M19 20l15 9M105 20l-15 9M19 108l15-9M105 108l-15-9" stroke="#d9a35f" stroke-opacity="0.18" stroke-width="2" stroke-linecap="round"/>
+  </g>
+  <g transform="translate(168 30)">
+    <path d="M0 0h22l22 34 22-34h22L50 50l39 52H67L44 66 21 102H0l39-52z" fill="#d9a35f" opacity="0.9"/>
+    <path d="M121 0h22l22 34 22-34h22L171 50l39 52h-22l-23-36-23 36h-22l39-52z" fill="#d9a35f" opacity="0.9"/>
+    <path d="M242 0h20v73c0 11 5 17 16 17s16-6 16-17V0h20v75c0 13-4 23-12 31-8 8-19 12-32 12s-24-4-32-12c-8-8-12-18-12-31z" fill="#d9a35f"/>
+    <path d="M358 0h46c15 0 27 4 35 11 8 7 12 17 12 29 0 10-3 19-10 26-6 6-14 10-25 12l39 46h-25l-37-44h-15v44h-20zm20 18v40h23c10 0 17-2 22-5 4-4 7-10 7-17 0-8-3-13-7-17-5-4-12-5-22-5z" fill="#d9a35f"/>
+    <path d="M504 0h19l28 72L579 0h19L548 111h-9z" fill="#d9a35f"/>
+    <path d="M607 0h19v111h-19z" fill="#d9a35f"/>
+    <path d="M637 0h77v18h-57v27h50v18h-50v30h58v18h-78z" fill="#d9a35f"/>
+    <path d="M0 126h712" stroke="#d9a35f" stroke-opacity="0.18" stroke-width="2"/>
+  </g>
 </svg>
