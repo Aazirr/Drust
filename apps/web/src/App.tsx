@@ -107,10 +107,12 @@ function SectionHeading({
   title,
   detail,
   meta,
+  action,
 }: {
   title: string
   detail?: string
   meta?: string
+  action?: React.ReactNode
 }) {
   return (
     <div className="section-heading">
@@ -118,7 +120,10 @@ function SectionHeading({
         <h2 className="section-title">{title}</h2>
         {detail ? <p className="section-detail">{detail}</p> : null}
       </div>
-      {meta ? <span className="meta-chip">{meta}</span> : null}
+      <div className="section-heading-actions">
+        {action}
+        {meta ? <span className="meta-chip">{meta}</span> : null}
+      </div>
     </div>
   )
 }
@@ -500,16 +505,36 @@ function ConfigViewPage({
   onStartRustplusPairing,
   onStartSmartAlarmBinding,
   onRemoveSmartAlarmBinding,
+  helpOpen,
+  onToggleHelp,
 }: {
   snapshot: DashboardSnapshot
   onTriggerAlarm: (target: OperationTarget, entityId: string) => Promise<void>
   onStartRustplusPairing: () => Promise<void>
   onStartSmartAlarmBinding: (target: 'small-oil' | 'large-oil') => Promise<void>
   onRemoveSmartAlarmBinding: (target: 'small-oil' | 'large-oil') => Promise<void>
+  helpOpen: boolean
+  onToggleHelp: () => void
 }) {
   return (
-    <section className="config-grid">
-      <section className="panel config-grid-span">
+    <section className="config-page">
+      <header className="config-page-header">
+        <div>
+          <p className="kicker">Configuration</p>
+          <h2>Pair Rust+, bind alarms, and route Discord output.</h2>
+          <p className="section-detail">
+            Use the help panel for the exact desktop helper commands and the in-game pairing sequence.
+          </p>
+        </div>
+        <button type="button" className="help-button" onClick={onToggleHelp} aria-expanded={helpOpen}>
+          {helpOpen ? 'Hide help' : 'Help'}
+        </button>
+      </header>
+
+      {helpOpen ? <ConfigHelpPanel /> : null}
+
+      <section className="config-grid">
+        <section className="panel config-grid-span">
         <SectionHeading
           title="Rust+ pairing"
           detail="Start the guided pairing runbook instead of hand-typing server credentials into Railway."
@@ -557,9 +582,9 @@ function ConfigViewPage({
             </div>
           ) : null}
         </div>
-      </section>
+        </section>
 
-      <section className="panel">
+        <section className="panel">
         <SectionHeading
           title="Rust+ connection"
           detail="Core server information pulled into the board."
@@ -578,9 +603,9 @@ function ConfigViewPage({
           />
           <ConfigItem label="Wipe Time" value={formatShortTime(snapshot.serverConnection.wipeTime)} />
         </div>
-      </section>
+        </section>
 
-      <section className="panel">
+        <section className="panel">
         <SectionHeading
           title="Alarm bindings"
           detail="Targets that can be triggered directly into the worker."
@@ -629,9 +654,9 @@ function ConfigViewPage({
             </div>
           </article>
         </div>
-      </section>
+        </section>
 
-      <section className="panel">
+        <section className="panel">
         <SectionHeading
           title="Discord routing"
           detail="Where operation alerts and system traffic should land."
@@ -644,9 +669,9 @@ function ConfigViewPage({
           <ConfigItem label="Operations Role" value={formatDisplayValue(snapshot.discordConfig.operationsRoleId)} />
           <ConfigItem label="Integration Status" value={formatDiscordStatus(snapshot.integrations.discord)} />
         </div>
-      </section>
+        </section>
 
-      <section className="panel">
+        <section className="panel">
         <SectionHeading
           title="Feature flags"
           detail="Spec-driven switches for current behavior."
@@ -665,7 +690,63 @@ function ConfigViewPage({
             value={snapshot.featureFlags.countdownPings ? 'Enabled' : 'Disabled'}
           />
         </div>
+        </section>
       </section>
+    </section>
+  )
+}
+
+function ConfigHelpPanel() {
+  return (
+    <section className="panel config-help-panel" aria-label="Pairing help">
+      <SectionHeading
+        title="Setup help"
+        detail="Use this flow when you need to reconnect Rust+ or pair Smart Alarms on a new wipe."
+        meta="Trusted desktop helper"
+      />
+
+      <div className="help-grid">
+        <article className="help-block">
+          <h3>Rust+ pairing flow</h3>
+          <ol className="help-steps">
+            <li>Open Drust on your Railway web URL and click <strong>Connect Rust+</strong>.</li>
+            <li>On a trusted Windows desktop, open PowerShell in the Drust repo folder.</li>
+            <li>Set the worker import URL so the helper knows where to send the captured pairing.</li>
+            <li>Run the register command once if this is a fresh machine.</li>
+            <li>Run the listen command and keep it open while you pair in Rust.</li>
+            <li>Open Rust in-game, connect to the server, then choose <strong>Pair with Server</strong>.</li>
+            <li>Wait for the helper to capture the notification, then import the pairing into Drust if needed.</li>
+          </ol>
+
+          <pre className="help-code" aria-label="Rust+ pairing commands">
+{`$env:DRUST_PAIRING_IMPORT_URL="https://drustworker-production.up.railway.app"
+npm.cmd --workspace @drust/pairing-helper start -- register
+npm.cmd --workspace @drust/pairing-helper start -- listen`}
+          </pre>
+        </article>
+
+        <article className="help-block">
+          <h3>Smart Alarm binding flow</h3>
+          <ol className="help-steps">
+            <li>Make sure the Rust+ listener is still running on the trusted desktop.</li>
+            <li>In game, power the Smart Alarm and open the wiring / pairing interaction.</li>
+            <li>Choose the target you want to bind in Drust before you trigger the device pairing.</li>
+            <li>Use the helper binding command for the correct Oil Rig target.</li>
+            <li>Repeat the flow once for Small Oil and once for Large Oil.</li>
+            <li>Return to Drust to confirm both bindings are active and ready for the live trigger path.</li>
+          </ol>
+
+          <pre className="help-code" aria-label="Smart Alarm binding commands">
+{`npm.cmd --workspace @drust/pairing-helper start -- bind-alarm small-oil
+npm.cmd --workspace @drust/pairing-helper start -- bind-alarm large-oil`}
+          </pre>
+        </article>
+      </div>
+
+      <p className="help-footnote">
+        Keep the helper window open while pairing. Once Drust receives the imported pairing or entity ID, the worker can
+        persist it to Postgres and the dashboard will show the live state.
+      </p>
     </section>
   )
 }
@@ -787,6 +868,7 @@ function App() {
   } =
     useDashboardState()
   const [section, setSection] = useState<AppSection>('overview')
+  const [configHelpOpen, setConfigHelpOpen] = useState(false)
   const deferredSnapshot = useDeferredValue(snapshot)
 
   const activeSnapshot = deferredSnapshot
@@ -902,6 +984,12 @@ function App() {
             onStartRustplusPairing={startRustplusPairing}
             onStartSmartAlarmBinding={startSmartAlarmBinding}
             onRemoveSmartAlarmBinding={removeSmartAlarmBinding}
+            helpOpen={configHelpOpen}
+            onToggleHelp={() => {
+              startTransition(() => {
+                setConfigHelpOpen((current) => !current)
+              })
+            }}
           />
         )}
       </section>
