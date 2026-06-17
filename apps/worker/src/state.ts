@@ -9,6 +9,7 @@ import {
   withDerivedSnapshot,
   type AlarmTriggerInput,
   type DashboardSnapshot,
+  type Operation,
   type OperationCloseInput,
   type OperationTarget,
   type RustplusEntityPairing,
@@ -25,6 +26,14 @@ export class WorkerState {
 
   getSnapshot(): DashboardSnapshot {
     return withDerivedSnapshot(this.snapshot)
+  }
+
+  setPersistedOperation(operation: Operation): void {
+    this.snapshot = {
+      ...this.snapshot,
+      activeOperation: operation,
+      updatedAt: new Date().toISOString(),
+    }
   }
 
   setRustplusMode(mode: DashboardSnapshot['integrations']['rustplus']): void {

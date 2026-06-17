@@ -9,7 +9,13 @@ import {
 } from 'discord.js'
 import { commandDefinitions } from './commands.js'
 import { getConfig } from './config.js'
-import { formatOperationStatus, formatPairingStatus, formatStatus } from './format.js'
+import {
+  operationAlertEmbed,
+  operationStatusEmbed,
+  pairingStatusEmbed,
+  statusEmbed,
+  timerActionEmbed,
+} from './embeds.js'
 import { WorkerClient } from './worker-client.js'
 
 const config = getConfig()
@@ -48,7 +54,7 @@ function getValidatedBotConfig(): typeof config & {
 async function handleStatus(interaction: ChatInputCommandInteraction): Promise<void> {
   const snapshot = await worker.fetchSnapshot()
   await interaction.reply({
-    content: formatStatus(snapshot),
+    embeds: [statusEmbed(snapshot)],
     ephemeral: true,
   })
 }
@@ -60,7 +66,7 @@ async function handlePairingStatus(interaction: ChatInputCommandInteraction): Pr
   ])
 
   await interaction.reply({
-    content: formatPairingStatus(snapshot, pairing, Boolean(config.token)),
+    embeds: [pairingStatusEmbed(snapshot, pairing, Boolean(config.token))],
     ephemeral: true,
   })
 }
@@ -68,7 +74,7 @@ async function handlePairingStatus(interaction: ChatInputCommandInteraction): Pr
 async function handleOperationStatus(interaction: ChatInputCommandInteraction): Promise<void> {
   const snapshot = await worker.fetchSnapshot()
   await interaction.reply({
-    content: formatOperationStatus(snapshot),
+    embeds: [operationStatusEmbed(snapshot)],
     ephemeral: true,
   })
 }
@@ -83,7 +89,7 @@ async function handleTimerStart(interaction: ChatInputCommandInteraction): Promi
   })
 
   await interaction.reply({
-    content: `Started ${target} for ${minutes} minutes.\n\n${formatOperationStatus(snapshot)}`,
+    embeds: [timerActionEmbed('started', null, snapshot, `Started ${target} for ${minutes} minutes.`)],
     ephemeral: false,
   })
 }
@@ -93,7 +99,7 @@ async function handleTimerExtend(interaction: ChatInputCommandInteraction): Prom
   const snapshot = await worker.extendTimer(minutes)
 
   await interaction.reply({
-    content: `Extended the active timer by ${minutes} minute${minutes === 1 ? '' : 's'}.\n\n${formatOperationStatus(snapshot)}`,
+    embeds: [timerActionEmbed('extended', null, snapshot, `Extended by ${minutes} minute${minutes === 1 ? '' : 's'}.`)],
     ephemeral: false,
   })
 }
@@ -107,7 +113,7 @@ async function handleOperationClose(interaction: ChatInputCommandInteraction): P
   })
 
   await interaction.reply({
-    content: `Closed the operation as ${result}.${note ? ` Note: ${note}` : ''}\n\n${formatOperationStatus(snapshot)}`,
+    embeds: [timerActionEmbed('closed', result, snapshot, note ? `Note: ${note}` : undefined)],
     ephemeral: false,
   })
 }
@@ -123,53 +129,6 @@ async function readJson<T>(request: IncomingMessage): Promise<T> {
   }
 
   return JSON.parse(Buffer.concat(chunks).toString('utf8')) as T
-}
-
-function formatAlertTarget(target: OperationTarget): string {
-  if (target === 'small-oil') {
-    return 'Small Oil'
-  }
-
-  if (target === 'large-oil') {
-    return 'Large Oil'
-  }
-
-  return 'Cargo'
-}
-
-function formatAlertTimestamp(timestamp: string): string {
-  return new Date(timestamp).toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
-function createOperationAlertMessage(payload: OperationAlertPayload, rustRoleId: string | null): string {
-  const rolePrefix = rustRoleId ? `<@&${rustRoleId}> ` : ''
-
-  if (payload.kind === 'countdown') {
-    return [
-      `${rolePrefix}${formatAlertTarget(payload.target)} ${payload.remainingMinutes} minute${payload.remainingMinutes === 1 ? '' : 's'} left`,
-      `Source: ${payload.source}`,
-      `Crate ETA: ${formatAlertTimestamp(payload.endsAt)}`,
-    ].join('\n')
-  }
-
-  if (payload.kind === 'completed') {
-    return [
-      `${rolePrefix}${formatAlertTarget(payload.target)} timer complete`,
-      `Source: ${payload.source}`,
-      `Started: ${formatAlertTimestamp(payload.startedAt)}`,
-      '15 minutes elapsed. Crates should be open now.',
-    ].join('\n')
-  }
-
-  return [
-    `${rolePrefix}${formatAlertTarget(payload.target)} triggered`,
-    `Source: ${payload.source}`,
-    `Started: ${formatAlertTimestamp(payload.startedAt)}`,
-    `Crate ETA: ${formatAlertTimestamp(payload.endsAt)}`,
-  ].join('\n')
 }
 
 async function sendOperationAlert(
@@ -190,12 +149,22 @@ async function sendOperationAlert(
     return
   }
 
+  const embed = operationAlertEmbed(
+    payload.kind,
+    payload.target,
+    payload.source,
+    payload.startedAt,
+    payload.endsAt,
+    payload.remainingMinutes,
+  )
+
+  const rolePrefix = config.rustRoleId ? `<@&${config.rustRoleId}>` : ''
+
   await channel.send({
-    content: createOperationAlertMessage(payload, config.rustRoleId),
-    allowedMentions: config.rustRoleId
-      ? {
-          roles: [config.rustRoleId],
-        }
+    content: payload.kind === 'triggered' ? rolePrefix : undefined,
+    embeds: [embed],
+    allowedMentions: config.rustRoleId && payload.kind === 'triggered'
+      ? { roles: [config.rustRoleId] }
       : undefined,
   })
 

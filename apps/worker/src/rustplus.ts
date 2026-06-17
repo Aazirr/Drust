@@ -20,6 +20,11 @@ export interface RustplusConnectionInput {
   largeOilEntityId: string | null
 }
 
+const ALARM_DEDUPE_WINDOW_MS = 30_000
+const HEARTBEAT_INTERVAL_MS = 30_000
+const HEARTBEAT_DEGRADED_THRESHOLD = 2
+const HEARTBEAT_DISCONNECTED_THRESHOLD = 5
+
 function isRustplusConfigured(config: {
   serverIp: string | null
   appPort: number | null
@@ -67,6 +72,9 @@ export class RustplusBridgeManager {
   private client: RustPlusLike | null = null
   private sessionId = 0
   private currentConnection: RustplusConnectionInput | null = null
+  private lastTriggeredAt = new Map<string, number>()
+  private heartbeatTimer: ReturnType<typeof setInterval> | null = null
+  private heartbeatFailures = 0
 
   constructor(
     private readonly state: WorkerState,
@@ -102,6 +110,68 @@ export class RustplusBridgeManager {
     if (this.client && entityId) {
       this.client.getEntityInfo(entityId)
     }
+  }
+
+  private isDuplicateTrigger(entityId: string): boolean {
+    const lastTrigger = this.lastTriggeredAt.get(entityId) ?? 0
+    return Date.now() - lastTrigger < ALARM_DEDUPE_WINDOW_MS
+  }
+
+  private recordTrigger(entityId: string): void {
+    this.lastTriggeredAt.set(entityId, Date.now())
+  }
+
+  private clearHeartbeat(): void {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer)
+      this.heartbeatTimer = null
+    }
+
+    this.heartbeatFailures = 0
+  }
+
+  private startHeartbeat(): void {
+    this.clearHeartbeat()
+    this.heartbeatTimer = setInterval(() => {
+      if (!this.client) {
+        return
+      }
+
+      this.client.getTime((message: any) => {
+        if (!this.client) {
+          return
+        }
+
+        const time = message?.response?.time
+        if (!time) {
+          this.heartbeatFailures++
+
+          if (this.heartbeatFailures === HEARTBEAT_DEGRADED_THRESHOLD) {
+            this.state.updateServerConnection({
+              connectionStatus: 'degraded',
+              lastError: 'Rust+ heartbeat missed.',
+              lastHeartbeatAt: new Date().toISOString(),
+            })
+          }
+
+          if (this.heartbeatFailures >= HEARTBEAT_DISCONNECTED_THRESHOLD) {
+            this.state.updateServerConnection({
+              connectionStatus: 'disconnected',
+              lastError: `Rust+ heartbeat lost after ${this.heartbeatFailures} failures.`,
+              lastHeartbeatAt: new Date().toISOString(),
+            })
+          }
+
+          return
+        }
+
+        this.heartbeatFailures = 0
+        this.state.updateServerConnection({
+          currentRustTime: `${Number(time.time).toFixed(2)} Rust`,
+          lastHeartbeatAt: new Date().toISOString(),
+        })
+      })
+    }, HEARTBEAT_INTERVAL_MS)
   }
 
   private async connect(connection: RustplusConnectionInput): Promise<void> {
@@ -141,6 +211,7 @@ export class RustplusBridgeManager {
       }
 
       this.state.setRustplusMode('connected')
+      this.startHeartbeat()
 
       client.getTime((message: any) => {
         if (currentSession !== this.sessionId) {
@@ -170,6 +241,7 @@ export class RustplusBridgeManager {
         return
       }
 
+      this.clearHeartbeat()
       this.state.updateServerConnection({
         connectionStatus: 'disconnected',
         lastError: 'Rust+ disconnected.',
@@ -211,6 +283,13 @@ export class RustplusBridgeManager {
         return
       }
 
+      /* Deduplicate: skip triggers from the same entity within the cooldown window. */
+      if (this.isDuplicateTrigger(entityId)) {
+        return
+      }
+
+      this.recordTrigger(entityId)
+
       await this.onAlarmTriggered({
         target,
         entityId,
@@ -226,6 +305,8 @@ export class RustplusBridgeManager {
     if (!this.client) {
       return
     }
+
+    this.clearHeartbeat()
 
     this.client.disconnect()
     this.client = null

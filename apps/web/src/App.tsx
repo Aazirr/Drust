@@ -9,7 +9,37 @@ import type {
 } from '@drust/domain'
 import { useDashboardState } from './useDashboardState'
 
-/* ── Helper: inline SVG for asset references ── */
+/* ── Animated timer ring ── */
+
+const TIMER_RING_RADIUS = 58
+const TIMER_RING_CIRCUMFERENCE = 2 * Math.PI * TIMER_RING_RADIUS
+
+function AnimatedTimerRing({ remainingSeconds, totalSeconds }: { remainingSeconds: number; totalSeconds: number }) {
+  const progress = totalSeconds > 0 ? Math.max(0, Math.min(1, remainingSeconds / totalSeconds)) : 1
+  const offset = TIMER_RING_CIRCUMFERENCE * (1 - progress)
+  const isUrgent = remainingSeconds <= 120
+  const strokeColor = isUrgent ? '#ef8d74' : '#d9a35f'
+
+  return (
+    <svg className="timer-ring" viewBox="0 0 140 140" fill="none" aria-hidden="true">
+      {/* Background track */}
+      <circle cx="70" cy="70" r={TIMER_RING_RADIUS} stroke="#15242d" strokeWidth="6" />
+      {/* Progress arc */}
+      <circle
+        cx="70"
+        cy="70"
+        r={TIMER_RING_RADIUS}
+        stroke={strokeColor}
+        strokeWidth="6"
+        strokeLinecap="round"
+        strokeDasharray={TIMER_RING_CIRCUMFERENCE}
+        strokeDashoffset={offset}
+        transform="rotate(-90 70 70)"
+        style={{ transition: 'stroke-dashoffset 1s linear, stroke 0.5s ease' }}
+      />
+    </svg>
+  )
+}
 
 function AssetImg({ path, className, alt, style }: { path: string; className?: string; alt?: string; style?: React.CSSProperties }) {
   return <img src={`/ui-rework-assets/${path}`} className={className} alt={alt ?? ''} draggable={false} style={style} />
@@ -274,7 +304,10 @@ function OverviewPage({
             {operation ? (
               <div className="timer-ring-wrap">
                 <p className="kicker">Countdown</p>
-                <AssetImg path="operation/timer-ring.svg" className="timer-ring" alt="" />
+                <AnimatedTimerRing
+                  remainingSeconds={operation.remainingSeconds}
+                  totalSeconds={Math.max(1, Math.floor((new Date(operation.endsAt).getTime() - new Date(operation.startedAt).getTime()) / 1000))}
+                />
                 <div className="timer-value">{formatRemaining(operation.remainingSeconds)}</div>
               </div>
             ) : (
