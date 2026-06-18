@@ -136,20 +136,22 @@ async function readJson<T>(request: IncomingMessage): Promise<T> {
 }
 
 async function resolveAlertsChannel(client: Client): Promise<ReturnType<Client['channels']['fetch']>> {
+  const channelId = config.alertsChannelId!
+
   /* Return cached channel if still valid. */
-  if (cachedAlertsChannel && cachedAlertsChannel.id === config.alertsChannelId) {
+  if (cachedAlertsChannel && cachedAlertsChannel.id === channelId) {
     return cachedAlertsChannel
   }
 
   /* Try cache first. */
-  const fromCache = client.channels.cache.get(config.alertsChannelId)
+  const fromCache = client.channels.cache.get(channelId)
   if (fromCache?.isTextBased() && fromCache.isSendable() && fromCache.type !== ChannelType.GuildVoice) {
     cachedAlertsChannel = fromCache
     return fromCache
   }
 
   /* Fall through to fetch. */
-  const fetched = await client.channels.fetch(config.alertsChannelId)
+  const fetched = await client.channels.fetch(channelId)
   if (fetched?.isTextBased() && fetched.isSendable() && fetched.type !== ChannelType.GuildVoice) {
     cachedAlertsChannel = fetched
   }
