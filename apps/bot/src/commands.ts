@@ -34,7 +34,18 @@ export const commandDefinitions = [
     ),
   new SlashCommandBuilder()
     .setName('timer-extend')
-    .setDescription('Extend the active operation timer.')
+    .setDescription('Extend an active operation timer.')
+    .addStringOption((option) =>
+      option
+        .setName('target')
+        .setDescription('Which target to extend (optional).')
+        .setRequired(false)
+        .addChoices(
+          { name: 'Small Oil', value: 'small-oil' },
+          { name: 'Large Oil', value: 'large-oil' },
+          { name: 'Cargo', value: 'cargo' },
+        ),
+    )
     .addIntegerOption((option) =>
       option
         .setName('minutes')
@@ -45,7 +56,18 @@ export const commandDefinitions = [
     ),
   new SlashCommandBuilder()
     .setName('op-close')
-    .setDescription('Close the active operation.')
+    .setDescription('Close an active operation.')
+    .addStringOption((option) =>
+      option
+        .setName('target')
+        .setDescription('Which target to close (optional).')
+        .setRequired(false)
+        .addChoices(
+          { name: 'Small Oil', value: 'small-oil' },
+          { name: 'Large Oil', value: 'large-oil' },
+          { name: 'Cargo', value: 'cargo' },
+        ),
+    )
     .addStringOption((option) =>
       option
         .setName('result')

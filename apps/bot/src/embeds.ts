@@ -26,25 +26,34 @@ function formatShortTime(timestamp: string | null): string {
 }
 
 export function statusEmbed(snapshot: DashboardSnapshot): EmbedBuilder {
-  const op = snapshot.activeOperation
-  const color = op ? (op.remainingSeconds <= 120 ? 0xef8d74 : 0xd9a35f) : 0x6dc6a2
+  const activeOps = snapshot.activeOperations.filter((op) => op.status === 'active')
+  const urgentOp = activeOps.find((op) => op.remainingSeconds <= 120)
+  const color = urgentOp ? 0xef8d74 : activeOps.length > 0 ? 0xd9a35f : 0x6dc6a2
 
-  return new EmbedBuilder()
+  const embed = new EmbedBuilder()
     .setColor(color)
     .setTitle('Drust Status')
     .addFields(
       { name: 'Rust+', value: snapshot.serverConnection.connectionStatus, inline: true },
       { name: 'Discord', value: snapshot.integrations.discord, inline: true },
       { name: 'Server', value: snapshot.serverConnection.serverName || 'N/A', inline: true },
-      {
-        name: 'Operation',
-        value: op ? `${labelForTarget(op.target)} · ${op.status}` : 'Idle',
-        inline: true,
-      },
-      { name: 'Last update', value: formatTime(snapshot.updatedAt), inline: true },
     )
-    .setFooter({ text: 'Drust Operations Command' })
-    .setTimestamp()
+
+  if (activeOps.length > 0) {
+    activeOps.forEach((op) => {
+      embed.addFields({
+        name: `${labelForTarget(op.target)} Timer`,
+        value: `${Math.floor(op.remainingSeconds / 60)}:${String(op.remainingSeconds % 60).padStart(2, '0')} · ${op.status}`,
+        inline: true,
+      })
+    })
+  } else {
+    embed.addFields({ name: 'Operation', value: 'Idle', inline: true })
+  }
+
+  embed.addFields({ name: 'Last update', value: formatTime(snapshot.updatedAt), inline: true })
+
+  return embed.setFooter({ text: 'Drust Operations Command' }).setTimestamp()
 }
 
 export function pairingStatusEmbed(
@@ -85,33 +94,34 @@ export function pairingStatusEmbed(
 }
 
 export function operationStatusEmbed(snapshot: DashboardSnapshot): EmbedBuilder {
-  const op = snapshot.activeOperation
+  const activeOps = snapshot.activeOperations.filter((op) => op.status === 'active')
 
-  if (!op) {
+  if (activeOps.length === 0) {
     return new EmbedBuilder()
       .setColor(0x728793)
       .setTitle('No Active Operation')
       .setDescription('The system is standing by. Operations will appear here when a Smart Alarm fires or a manual timer is started.')
   }
 
-  const isUrgent = op.remainingSeconds <= 120
-  const color = isUrgent ? 0xef8d74 : op.status === 'active' ? 0xd9a35f : 0x728793
-  const mins = Math.floor(op.remainingSeconds / 60)
-  const secs = op.remainingSeconds % 60
-  const timeDisplay = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+  const urgentOp = activeOps.find((op) => op.remainingSeconds <= 120)
+  const color = urgentOp ? 0xef8d74 : 0xd9a35f
 
-  return new EmbedBuilder()
+  const embed = new EmbedBuilder()
     .setColor(color)
-    .setTitle(`${labelForTarget(op.target)} · ${op.status}`)
-    .setDescription(isUrgent ? '⚠️ Timer running low!' : null)
-    .addFields(
-      { name: '⏱ Remaining', value: timeDisplay, inline: true },
-      { name: 'Source', value: op.source, inline: true },
-      { name: 'Crate ETA', value: formatShortTime(op.endsAt) || '--:--', inline: true },
-      { name: 'Started', value: formatShortTime(op.startedAt) || '--:--', inline: true },
-    )
-    .setFooter({ text: 'Drust Operations Command' })
-    .setTimestamp()
+    .setTitle(activeOps.length > 1 ? `${activeOps.length} Active Operations` : `${labelForTarget(activeOps[0].target)} · ${activeOps[0].status}`)
+    .setDescription(urgentOp ? '⚠️ Timer running low!' : null)
+
+  activeOps.forEach((op) => {
+    const mins = Math.floor(op.remainingSeconds / 60)
+    const secs = op.remainingSeconds % 60
+    embed.addFields({
+      name: `⏱ ${labelForTarget(op.target)}`,
+      value: `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')} · Crate ${formatShortTime(op.endsAt)}`,
+      inline: true,
+    })
+  })
+
+  return embed.setFooter({ text: 'Drust Operations Command' }).setTimestamp()
 }
 
 export function operationAlertEmbed(
@@ -149,9 +159,13 @@ export function timerActionEmbed(
   action: 'started' | 'extended' | 'closed',
   result: string | null,
   snapshot: DashboardSnapshot,
+  target: OperationTarget | undefined,
   extra?: string,
 ): EmbedBuilder {
-  const op = snapshot.activeOperation
+  const activeOps = snapshot.activeOperations.filter((op) => op.status === 'active')
+  const relevantOp = target
+    ? snapshot.activeOperations.find((op) => op.target === target)
+    : snapshot.activeOperations.find((op) => op.status === 'active')
   const color = action === 'closed'
     ? (result === 'success' ? 0x6dc6a2 : 0xef8d74)
     : 0xd9a35f
@@ -160,7 +174,7 @@ export function timerActionEmbed(
     .setColor(color)
     .setTitle(
       action === 'started'
-        ? `Timer Started — ${op ? labelForTarget(op.target) : 'Unknown'}`
+        ? `Timer Started — ${relevantOp ? labelForTarget(relevantOp.target) : 'Unknown'}`
         : action === 'extended'
           ? 'Timer Extended'
           : `Operation Closed — ${result ?? 'unknown'}`,
@@ -170,14 +184,24 @@ export function timerActionEmbed(
     embed.setDescription(extra)
   }
 
-  if (op) {
-    const mins = Math.floor(op.remainingSeconds / 60)
-    const secs = op.remainingSeconds % 60
+  if (relevantOp) {
+    const mins = Math.floor(relevantOp.remainingSeconds / 60)
+    const secs = relevantOp.remainingSeconds % 60
     embed.addFields(
       { name: '⏱ Remaining', value: `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`, inline: true },
-      { name: 'Crate ETA', value: formatShortTime(op.endsAt) || '--:--', inline: true },
-      { name: 'Source', value: op.source, inline: true },
+      { name: 'Crate ETA', value: formatShortTime(relevantOp.endsAt) || '--:--', inline: true },
+      { name: 'Source', value: relevantOp.source, inline: true },
     )
+  } else if (activeOps.length > 0) {
+    activeOps.forEach((op) => {
+      const mins = Math.floor(op.remainingSeconds / 60)
+      const secs = op.remainingSeconds % 60
+      embed.addFields({
+        name: `${labelForTarget(op.target)}`,
+        value: `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`,
+        inline: true,
+      })
+    })
   }
 
   return embed.setFooter({ text: 'Drust Operations Command' }).setTimestamp()

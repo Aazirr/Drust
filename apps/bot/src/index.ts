@@ -89,17 +89,18 @@ async function handleTimerStart(interaction: ChatInputCommandInteraction): Promi
   })
 
   await interaction.reply({
-    embeds: [timerActionEmbed('started', null, snapshot, `Started ${target} for ${minutes} minutes.`)],
+    embeds: [timerActionEmbed('started', null, snapshot, target, `Started ${target} for ${minutes} minutes.`)],
     ephemeral: false,
   })
 }
 
 async function handleTimerExtend(interaction: ChatInputCommandInteraction): Promise<void> {
   const minutes = interaction.options.getInteger('minutes', true)
-  const snapshot = await worker.extendTimer(minutes)
+  const target = interaction.options.getString('target') as OperationTarget | null
+  const snapshot = await worker.extendTimer(target ?? undefined, minutes)
 
   await interaction.reply({
-    embeds: [timerActionEmbed('extended', null, snapshot, `Extended by ${minutes} minute${minutes === 1 ? '' : 's'}.`)],
+    embeds: [timerActionEmbed('extended', null, snapshot, target ?? undefined, `Extended by ${minutes} minute${minutes === 1 ? '' : 's'}.`)],
     ephemeral: false,
   })
 }
@@ -107,13 +108,15 @@ async function handleTimerExtend(interaction: ChatInputCommandInteraction): Prom
 async function handleOperationClose(interaction: ChatInputCommandInteraction): Promise<void> {
   const result = interaction.options.getString('result', true) as OperationResult
   const note = interaction.options.getString('note') ?? undefined
+  const target = interaction.options.getString('target') as OperationTarget | null
   const snapshot = await worker.closeOperation({
+    target: target ?? undefined,
     result,
     closeNote: note,
   })
 
   await interaction.reply({
-    embeds: [timerActionEmbed('closed', result, snapshot, note ? `Note: ${note}` : undefined)],
+    embeds: [timerActionEmbed('closed', result, snapshot, target ?? undefined, note ? `Note: ${note}` : undefined)],
     ephemeral: false,
   })
 }

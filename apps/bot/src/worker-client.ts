@@ -42,10 +42,10 @@ export class WorkerClient {
     })
   }
 
-  async extendTimer(minutes: number): Promise<DashboardSnapshot> {
+  async extendTimer(target: string | undefined, minutes: number): Promise<DashboardSnapshot> {
     return this.fetchJson<DashboardSnapshot>('/api/actions/timer-extend', {
       method: 'POST',
-      body: JSON.stringify({ minutes }),
+      body: JSON.stringify({ target, minutes }),
     })
   }
 

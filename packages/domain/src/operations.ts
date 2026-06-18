@@ -40,20 +40,19 @@ function updateBinding(bindings: AlarmBinding[], input: AlarmTriggerInput, trigg
 }
 
 export function withDerivedSnapshot(snapshot: DashboardSnapshot, now = new Date()): DashboardSnapshot {
-  const activeOperation =
-    snapshot.activeOperation && snapshot.activeOperation.status === 'active'
-      ? {
-          ...snapshot.activeOperation,
-          remainingSeconds: Math.max(
-            0,
-            Math.floor((new Date(snapshot.activeOperation.endsAt).getTime() - now.getTime()) / 1000),
-          ),
-        }
-      : snapshot.activeOperation
+  const activeOperations = snapshot.activeOperations
+    .filter((op) => op.status === 'active')
+    .map((op) => ({
+      ...op,
+      remainingSeconds: Math.max(
+        0,
+        Math.floor((new Date(op.endsAt).getTime() - now.getTime()) / 1000),
+      ),
+    }))
 
   return {
     ...snapshot,
-    activeOperation,
+    activeOperations,
     updatedAt: now.toISOString(),
   }
 }
@@ -63,8 +62,8 @@ export function startOperationFromAlarm(
   input: AlarmTriggerInput,
   now = new Date(),
 ): DashboardSnapshot {
-  /* Guard: never overwrite an already-active operation. */
-  if (snapshot.activeOperation && snapshot.activeOperation.status === 'active') {
+  /* Guard: skip if a timer for the same target is already active. */
+  if (snapshot.activeOperations.some((op) => op.target === input.target && op.status === 'active')) {
     return snapshot
   }
 
@@ -73,7 +72,7 @@ export function startOperationFromAlarm(
   const endsAt = new Date(new Date(triggeredAt).getTime() + 15 * 60 * 1000).toISOString()
   const label = input.target === 'small-oil' ? 'Small Oil' : 'Large Oil'
 
-  const activeOperation: Operation = {
+  const newOperation: Operation = {
     operationId: createId(`op-${input.target}`, triggeredAt),
     target: input.target,
     source,
@@ -96,7 +95,7 @@ export function startOperationFromAlarm(
   return withDerivedSnapshot(
     {
       ...snapshot,
-      activeOperation,
+      activeOperations: [...snapshot.activeOperations, newOperation],
       alarmBindings: updateBinding(snapshot.alarmBindings, input, triggeredAt),
       activityLog,
       updatedAt: triggeredAt,
@@ -120,7 +119,7 @@ export function startOperation(
     cargo: 'Cargo',
   }
 
-  const activeOperation: Operation = {
+  const newOperation: Operation = {
     operationId: createId(`op-${input.target}`, startedAt),
     target: input.target,
     source,
@@ -148,7 +147,7 @@ export function startOperation(
   return withDerivedSnapshot(
     {
       ...snapshot,
-      activeOperation,
+      activeOperations: [...snapshot.activeOperations, newOperation],
       activityLog,
       updatedAt: startedAt,
     },
@@ -161,69 +160,94 @@ export function closeActiveOperation(
   input: OperationCloseInput,
   now = new Date(),
 ): DashboardSnapshot {
-  if (!snapshot.activeOperation) {
-    return snapshot
-  }
-
+  const targetToClose = input.target
   const closedAt = input.closedAt ?? now.toISOString()
-  const closedOperation: Operation = {
-    ...snapshot.activeOperation,
-    status: 'closed',
-    remainingSeconds: 0,
-    result: input.result,
-    closeNote: input.closeNote ?? null,
-  }
 
-  const activityLog = [
-    createActivity(
-      'operation-closed',
-      `Operation closed as ${input.result}${input.closeNote ? `: ${input.closeNote}` : '.'}`,
-      closedOperation.target,
-      closedOperation.source,
-      closedAt,
-    ),
-    ...snapshot.activityLog,
-  ].slice(0, 18)
+  const nextOperations = snapshot.activeOperations.map((op) => {
+    if ((targetToClose && op.target === targetToClose && op.status === 'active') ||
+        (!targetToClose && op.status === 'active')) {
+      const closed: Operation = {
+        ...op,
+        status: 'closed',
+        remainingSeconds: 0,
+        result: input.result,
+        closeNote: input.closeNote ?? null,
+      }
+
+      const activityLog = [
+        createActivity(
+          'operation-closed',
+          `Operation closed as ${input.result}${input.closeNote ? `: ${input.closeNote}` : '.'}`,
+          closed.target,
+          closed.source,
+          closedAt,
+        ),
+        ...snapshot.activityLog,
+      ].slice(0, 18)
+
+      /* We return a fully mutated snapshot from here — only close one operation. */
+      snapshot = {
+        ...snapshot,
+        activeOperations: snapshot.activeOperations.map((o) => (o.operationId === op.operationId ? closed : o)),
+        activityLog,
+        updatedAt: closedAt,
+      }
+
+      return closed
+    }
+
+    return op
+  })
 
   return {
     ...snapshot,
-    activeOperation: closedOperation,
-    activityLog,
-    updatedAt: closedAt,
+    activeOperations: nextOperations,
   }
 }
 
 export function extendActiveOperation(
   snapshot: DashboardSnapshot,
-  minutes: number,
+  input: { target?: OperationTarget; minutes: number },
   now = new Date(),
 ): DashboardSnapshot {
-  if (!snapshot.activeOperation || snapshot.activeOperation.status !== 'active') {
+  const nextOperations = snapshot.activeOperations.map((op) => {
+    const matches = !input.target || op.target === input.target
+    if (!matches || op.status !== 'active') {
+      return op
+    }
+
+    const endsAt = new Date(new Date(op.endsAt).getTime() + input.minutes * 60 * 1000).toISOString()
+
+    return {
+      ...op,
+      endsAt,
+      remainingSeconds: op.remainingSeconds + input.minutes * 60,
+    }
+  })
+
+  const changed = nextOperations.some((op, i) => op !== snapshot.activeOperations[i])
+  if (!changed) {
     return snapshot
   }
 
-  const endsAt = new Date(new Date(snapshot.activeOperation.endsAt).getTime() + minutes * 60 * 1000).toISOString()
-  const nextSnapshot: DashboardSnapshot = {
-    ...snapshot,
-    activeOperation: {
-      ...snapshot.activeOperation,
-      endsAt,
-      remainingSeconds: snapshot.activeOperation.remainingSeconds + minutes * 60,
+  return withDerivedSnapshot(
+    {
+      ...snapshot,
+      activeOperations: nextOperations,
+      activityLog: [
+        createActivity(
+          'countdown-sent',
+          `Operation timer extended by ${input.minutes} minute${input.minutes === 1 ? '' : 's'}.`,
+          snapshot.activeOperations.find((op) => op.status === 'active')?.target ?? null,
+          snapshot.activeOperations.find((op) => op.status === 'active')?.source ?? null,
+          now.toISOString(),
+        ),
+        ...snapshot.activityLog,
+      ].slice(0, 18),
+      updatedAt: now.toISOString(),
     },
-    activityLog: [
-      createActivity(
-        'countdown-sent',
-        `Operation timer extended by ${minutes} minute${minutes === 1 ? '' : 's'}.`,
-        snapshot.activeOperation.target,
-        snapshot.activeOperation.source,
-        now.toISOString(),
-      ),
-      ...snapshot.activityLog,
-    ].slice(0, 18),
-    updatedAt: now.toISOString(),
-  }
-
-  return withDerivedSnapshot(nextSnapshot, now)
+    now,
+  )
 }
 
 export function recordDiscordDelivery(
@@ -231,14 +255,15 @@ export function recordDiscordDelivery(
   message: string,
   now = new Date(),
 ): DashboardSnapshot {
+  const activeOp = snapshot.activeOperations.find((op) => op.status === 'active')
   return {
     ...snapshot,
     activityLog: [
       createActivity(
         'discord-sent',
         message,
-        snapshot.activeOperation?.target ?? null,
-        snapshot.activeOperation?.source ?? null,
+        activeOp?.target ?? null,
+        activeOp?.source ?? null,
         now.toISOString(),
       ),
       ...snapshot.activityLog,
@@ -248,21 +273,23 @@ export function recordDiscordDelivery(
 }
 
 export function formatDiscordAlarmMessage(snapshot: DashboardSnapshot): string {
-  if (!snapshot.activeOperation) {
+  const activeOps = snapshot.activeOperations.filter((op) => op.status === 'active')
+  if (activeOps.length === 0) {
     return 'No active operation.'
   }
 
-  const operation = snapshot.activeOperation
-  const roleTag = snapshot.discordConfig.operationsRoleId
-    ? `<@&${snapshot.discordConfig.operationsRoleId}> `
-    : ''
+  return activeOps.map((operation) => {
+    const roleTag = snapshot.discordConfig.operationsRoleId
+      ? `<@&${snapshot.discordConfig.operationsRoleId}> `
+      : ''
 
-  return [
-    `${roleTag}${operation.target === 'small-oil' ? 'Small Oil' : 'Large Oil'} triggered`,
-    `Source: ${operation.source}`,
-    `Started: ${new Date(operation.startedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`,
-    `Crate ETA: ${new Date(operation.endsAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`,
-  ].join('\n')
+    return [
+      `${roleTag}${operation.target === 'small-oil' ? 'Small Oil' : 'Large Oil'} triggered`,
+      `Source: ${operation.source}`,
+      `Started: ${new Date(operation.startedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`,
+      `Crate ETA: ${new Date(operation.endsAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`,
+    ].join('\n')
+  }).join('\n\n')
 }
 
 export function createMockSnapshot(): DashboardSnapshot {

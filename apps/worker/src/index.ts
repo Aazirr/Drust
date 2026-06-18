@@ -28,7 +28,6 @@ const smartAlarmIdsConfigured = Boolean(
   config.rustplus.smallOilEntityId && config.rustplus.largeOilEntityId,
 )
 let countdownTimers: ReturnType<typeof setTimeout>[] = []
-let scheduledOperationId: string | null = null
 let completedCheckpoints: string[] = []
 const COUNTDOWN_CHECKPOINTS = [
   { kind: 'countdown' as const, remainingMinutes: 5, activityMessage: 'Discord bot delivered 5 minute warning.', checkpointId: 'countdown-5' },
@@ -149,7 +148,7 @@ async function handleAlarmTriggered(input: AlarmTriggerInput): Promise<void> {
   }
 
   const snapshot = state.getSnapshot()
-  const operation = snapshot.activeOperation
+  const operation = snapshot.activeOperations.find((op) => op.target === input.target && op.status === 'active')
   if (!operation) {
     return
   }
@@ -177,12 +176,9 @@ async function handleAlarmTriggered(input: AlarmTriggerInput): Promise<void> {
 async function persistOperation(): Promise<void> {
   try {
     const snapshot = state.getSnapshot()
-    const operation = snapshot.activeOperation
-    if (!operation) {
-      return
+    for (const operation of snapshot.activeOperations) {
+      await persistence.saveOperation(operation, completedCheckpoints)
     }
-
-    await persistence.saveOperation(operation, completedCheckpoints)
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown persistence error.'
     state.updateServerConnection({
@@ -195,7 +191,6 @@ async function persistOperation(): Promise<void> {
 function clearCountdownSchedule(): void {
   countdownTimers.forEach((timer) => clearTimeout(timer))
   countdownTimers = []
-  scheduledOperationId = null
   completedCheckpoints = []
 }
 
@@ -218,120 +213,110 @@ async function sendCountdownAlert(payload: BotOperationAlertPayload, activityMes
 
 async function fireMissedCheckpoints(): Promise<void> {
   const snapshot = state.getSnapshot()
-  const operation = snapshot.activeOperation
-  if (!operation || operation.status !== 'active') {
-    return
-  }
+  const activeOps = snapshot.activeOperations.filter(
+    (op) => op.status === 'active' && (op.target === 'small-oil' || op.target === 'large-oil'),
+  )
 
-  if (operation.operationId !== scheduledOperationId) {
-    return
-  }
+  for (const operation of activeOps) {
+    const endsAtMs = new Date(operation.endsAt).getTime()
+    const nowMs = Date.now()
 
-  const endsAtMs = new Date(operation.endsAt).getTime()
-  const nowMs = Date.now()
+    COUNTDOWN_CHECKPOINTS.forEach((checkpoint) => {
+      if (completedCheckpoints.includes(checkpoint.checkpointId)) {
+        return
+      }
 
-  COUNTDOWN_CHECKPOINTS.forEach((checkpoint) => {
-    if (completedCheckpoints.includes(checkpoint.checkpointId)) {
-      return
-    }
+      const triggerAtMs =
+        checkpoint.kind === 'completed'
+          ? endsAtMs
+          : endsAtMs - checkpoint.remainingMinutes * 60 * 1000
 
-    const triggerAtMs =
-      checkpoint.kind === 'completed'
-        ? endsAtMs
-        : endsAtMs - checkpoint.remainingMinutes * 60 * 1000
+      if (nowMs >= triggerAtMs) {
+        completedCheckpoints.push(checkpoint.checkpointId)
 
-    if (nowMs >= triggerAtMs) {
-      completedCheckpoints.push(checkpoint.checkpointId)
-
-      void (async () => {
-        await sendCountdownAlert(
-          {
-            kind: checkpoint.kind,
-            target: operation.target,
-            source: operation.source,
-            startedAt: operation.startedAt,
-            endsAt: operation.endsAt,
-            operationId: operation.operationId,
-            remainingMinutes: checkpoint.kind === 'countdown' ? checkpoint.remainingMinutes : undefined,
-          },
-          checkpoint.activityMessage,
-        )
-        await persistence.saveOperation(operation, completedCheckpoints)
-      })().catch((error) => {
-        const message = error instanceof Error ? error.message : 'Unknown Discord countdown delivery error.'
-        state.updateServerConnection({
-          lastError: message,
-          lastHeartbeatAt: new Date().toISOString(),
+        void (async () => {
+          await sendCountdownAlert(
+            {
+              kind: checkpoint.kind,
+              target: operation.target,
+              source: operation.source,
+              startedAt: operation.startedAt,
+              endsAt: operation.endsAt,
+              operationId: operation.operationId,
+              remainingMinutes: checkpoint.kind === 'countdown' ? checkpoint.remainingMinutes : undefined,
+            },
+            checkpoint.activityMessage,
+          )
+          await persistence.saveOperation(operation, completedCheckpoints)
+        })().catch((error) => {
+          const message = error instanceof Error ? error.message : 'Unknown Discord countdown delivery error.'
+          state.updateServerConnection({
+            lastError: message,
+            lastHeartbeatAt: new Date().toISOString(),
+          })
         })
-      })
-    }
-  })
+      }
+    })
+  }
 }
 
 function syncCountdownSchedule(): void {
   clearCountdownSchedule()
 
   const snapshot = state.getSnapshot()
-  const operation = snapshot.activeOperation
-  if (!operation || operation.status !== 'active' || operation.source !== 'smart-alarm') {
-    return
-  }
+  const activeOps = snapshot.activeOperations.filter(
+    (op) => op.status === 'active' && op.source === 'smart-alarm' && (op.target === 'small-oil' || op.target === 'large-oil'),
+  )
 
-  if (operation.target !== 'small-oil' && operation.target !== 'large-oil') {
-    return
-  }
+  activeOps.forEach((operation) => {
+    const endsAtMs = new Date(operation.endsAt).getTime()
 
-  scheduledOperationId = operation.operationId
-  const endsAtMs = new Date(operation.endsAt).getTime()
+    COUNTDOWN_CHECKPOINTS.forEach((checkpoint) => {
+      const triggerAtMs =
+        checkpoint.kind === 'completed'
+          ? endsAtMs
+          : endsAtMs - checkpoint.remainingMinutes * 60 * 1000
+      const delayMs = triggerAtMs - Date.now()
 
-  COUNTDOWN_CHECKPOINTS.forEach((checkpoint) => {
-    const triggerAtMs =
-      checkpoint.kind === 'completed'
-        ? endsAtMs
-        : endsAtMs - checkpoint.remainingMinutes * 60 * 1000
-    const delayMs = triggerAtMs - Date.now()
+      if (delayMs <= 0) {
+        return
+      }
 
-    if (delayMs <= 0) {
-      return
-    }
+      const timer = setTimeout(() => {
+        void (async () => {
+          const currentSnapshot = state.getSnapshot()
+          const currentOperation = currentSnapshot.activeOperations.find(
+            (op) => op.operationId === operation.operationId && op.status === 'active',
+          )
+          if (!currentOperation) {
+            return
+          }
 
-    const timer = setTimeout(() => {
-      void (async () => {
-        const currentSnapshot = state.getSnapshot()
-        const currentOperation = currentSnapshot.activeOperation
-        if (
-          !currentOperation ||
-          currentOperation.operationId !== operation.operationId ||
-          currentOperation.status !== 'active' ||
-          scheduledOperationId !== operation.operationId
-        ) {
-          return
-        }
-
-        completedCheckpoints.push(checkpoint.checkpointId)
-        await sendCountdownAlert(
-          {
-            kind: checkpoint.kind,
-            target: currentOperation.target,
-            source: currentOperation.source,
-            startedAt: currentOperation.startedAt,
-            endsAt: currentOperation.endsAt,
-            operationId: currentOperation.operationId,
-            remainingMinutes: checkpoint.kind === 'countdown' ? checkpoint.remainingMinutes : undefined,
-          },
-          checkpoint.activityMessage,
-        )
-        await persistence.saveOperation(currentOperation, completedCheckpoints)
-      })().catch((error) => {
-        const message = error instanceof Error ? error.message : 'Unknown Discord countdown delivery error.'
-        state.updateServerConnection({
-          lastError: message,
-          lastHeartbeatAt: new Date().toISOString(),
+          completedCheckpoints.push(checkpoint.checkpointId)
+          await sendCountdownAlert(
+            {
+              kind: checkpoint.kind,
+              target: currentOperation.target,
+              source: currentOperation.source,
+              startedAt: currentOperation.startedAt,
+              endsAt: currentOperation.endsAt,
+              operationId: currentOperation.operationId,
+              remainingMinutes: checkpoint.kind === 'countdown' ? checkpoint.remainingMinutes : undefined,
+            },
+            checkpoint.activityMessage,
+          )
+          await persistence.saveOperation(currentOperation, completedCheckpoints)
+        })().catch((error) => {
+          const message = error instanceof Error ? error.message : 'Unknown Discord countdown delivery error.'
+          state.updateServerConnection({
+            lastError: message,
+            lastHeartbeatAt: new Date().toISOString(),
+          })
         })
-      })
-    }, delayMs)
+      }, delayMs)
 
-    countdownTimers.push(timer)
+      countdownTimers.push(timer)
+    })
   })
 }
 
@@ -466,8 +451,8 @@ const server = createServer(async (request: IncomingMessage, response: ServerRes
   }
 
   if (request.method === 'POST' && requestUrl.pathname === '/api/actions/timer-extend') {
-    const payload = await readJson<{ minutes: number }>(request)
-    const nextSnapshot = state.extendTimer(payload.minutes ?? 0)
+    const payload = await readJson<{ target?: OperationTarget; minutes: number }>(request)
+    const nextSnapshot = state.extendTimer(payload.target, payload.minutes ?? 0)
     syncCountdownSchedule()
     await persistOperation()
     writeJson(response, 200, nextSnapshot)

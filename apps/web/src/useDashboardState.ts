@@ -203,7 +203,7 @@ export function useDashboardState() {
       })
     } catch {
       startTransition(() => {
-        setSnapshot((current) => extendActiveOperation(current, minutes))
+        setSnapshot((current) => extendActiveOperation(current, { minutes }))
       })
     }
   }

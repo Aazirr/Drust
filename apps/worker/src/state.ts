@@ -31,7 +31,7 @@ export class WorkerState {
   setPersistedOperation(operation: Operation): void {
     this.snapshot = {
       ...this.snapshot,
-      activeOperation: operation,
+      activeOperations: [operation],
       updatedAt: new Date().toISOString(),
     }
   }
@@ -375,8 +375,8 @@ export class WorkerState {
     return this.getSnapshot()
   }
 
-  extendTimer(minutes: number): DashboardSnapshot {
-    this.snapshot = extendActiveOperation(this.snapshot, minutes)
+  extendTimer(target: OperationTarget | undefined, minutes: number): DashboardSnapshot {
+    this.snapshot = extendActiveOperation(this.snapshot, { target, minutes })
     return this.getSnapshot()
   }
 

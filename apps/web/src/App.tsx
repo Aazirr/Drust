@@ -255,7 +255,9 @@ function OverviewPage({
   onExtendTimer: (minutes: number) => Promise<void>
   onCancelOperation: () => Promise<void>
 }) {
-  const operation = snapshot.activeOperation
+  const activeOps = snapshot.activeOperations.filter((op) => op.status === 'active')
+  const operation = activeOps.length > 0 ? activeOps[0] : null
+  const hasMultiple = activeOps.length > 1
 
   return (
     <section className="content-grid">
@@ -265,7 +267,11 @@ function OverviewPage({
             <div className="hero-topline">
               <p className="kicker">Active operation</p>
               <span className={`state-pill ${operation ? (operation.status === 'active' ? 'state-live' : 'state-muted') : 'state-muted'}`}>
-                {operation ? (operation.status === 'active' ? 'Operation live' : 'Operation closed') : 'No active operation'}
+                {operation
+                  ? hasMultiple
+                    ? `${activeOps.length} ops live`
+                    : 'Operation live'
+                  : 'No active operation'}
               </span>
             </div>
 
@@ -303,12 +309,20 @@ function OverviewPage({
           <div className="timer-panel">
             {operation ? (
               <div className="timer-ring-wrap">
-                <p className="kicker">Countdown</p>
+                <p className="kicker">{hasMultiple ? `${activeOps.length} Timers` : 'Countdown'}</p>
                 <AnimatedTimerRing
                   remainingSeconds={operation.remainingSeconds}
                   totalSeconds={Math.max(1, Math.floor((new Date(operation.endsAt).getTime() - new Date(operation.startedAt).getTime()) / 1000))}
                 />
-                <div className="timer-value">{formatRemaining(operation.remainingSeconds)}</div>
+                <div className="timer-value">
+                  {hasMultiple
+                    ? activeOps.map((op) => (
+                        <span key={op.operationId} style={{ display: 'block', fontSize: '1rem', marginTop: 4 }}>
+                          {formatTargetLabel(op.target)}: {formatRemaining(op.remainingSeconds)}
+                        </span>
+                      ))
+                    : formatRemaining(operation.remainingSeconds)}
+                </div>
               </div>
             ) : (
               <div className="idle-radar">

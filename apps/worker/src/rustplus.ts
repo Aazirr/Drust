@@ -9,6 +9,7 @@ type RustPlusLike = {
   getEntityInfo: (entityId: string, callback?: (message: unknown) => void) => void
   getInfo: (callback?: (message: any) => void) => void
   getTime: (callback?: (message: any) => void) => void
+  sendTeamMessage: (message: string) => void
 }
 
 export interface RustplusConnectionInput {
@@ -212,6 +213,30 @@ export class RustplusBridgeManager {
 
       this.state.setRustplusMode('connected')
       this.startHeartbeat()
+
+      /* ── In-game team chat commands ── */
+      client.on('message', (msg: any) => {
+        if (currentSession !== this.sessionId) {
+          return
+        }
+
+        const teamMessage = msg?.broadcast?.teamMessage
+        if (!teamMessage?.message?.message) {
+          return
+        }
+
+        const text = String(teamMessage.message.message).trim()
+        if (text === '!time') {
+          client.getTime((timeMsg: any) => {
+            const time = timeMsg?.response?.time
+            if (!time) {
+              return
+            }
+
+            client.sendTeamMessage(`${Number(time.time).toFixed(2)} Rust (in-game time)`)
+          })
+        }
+      })
 
       client.getTime((message: any) => {
         if (currentSession !== this.sessionId) {

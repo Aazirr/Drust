@@ -26,13 +26,16 @@ function formatTime(timestamp: string | null): string {
 }
 
 export function formatStatus(snapshot: DashboardSnapshot): string {
-  const activeOperation = snapshot.activeOperation
+  const activeOps = snapshot.activeOperations.filter((op) => op.status === 'active')
+  const opSummary = activeOps.length > 0
+    ? activeOps.map((op) => `${labelForTarget(op.target)} (${op.status})`).join(', ')
+    : 'Idle'
 
   return [
     `Rust+: ${snapshot.serverConnection.connectionStatus}`,
     `Discord: ${snapshot.integrations.discord}`,
     `Server: ${snapshot.serverConnection.serverName}`,
-    `Operation: ${activeOperation ? `${labelForTarget(activeOperation.target)} (${activeOperation.status})` : 'Idle'}`,
+    `Operation: ${opSummary}`,
     `Last update: ${formatTime(snapshot.updatedAt)}`,
   ].join('\n')
 }
@@ -66,18 +69,20 @@ export function formatPairingStatus(
 }
 
 export function formatOperationStatus(snapshot: DashboardSnapshot): string {
-  const activeOperation = snapshot.activeOperation
+  const activeOps = snapshot.activeOperations.filter((op) => op.status === 'active')
 
-  if (!activeOperation) {
+  if (activeOps.length === 0) {
     return 'No active operation.'
   }
 
-  return [
-    `Target: ${labelForTarget(activeOperation.target)}`,
-    `Source: ${activeOperation.source}`,
-    `Status: ${activeOperation.status}`,
-    `Started: ${formatTime(activeOperation.startedAt)}`,
-    `Crate ETA: ${formatTime(activeOperation.endsAt)}`,
-    `Remaining: ${activeOperation.remainingSeconds}s`,
-  ].join('\n')
+  return activeOps.map((op) =>
+    [
+      `Target: ${labelForTarget(op.target)}`,
+      `Source: ${op.source}`,
+      `Status: ${op.status}`,
+      `Started: ${formatTime(op.startedAt)}`,
+      `Crate ETA: ${formatTime(op.endsAt)}`,
+      `Remaining: ${op.remainingSeconds}s`,
+    ].join('\n'),
+  ).join('\n\n')
 }

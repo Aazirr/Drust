@@ -168,7 +168,7 @@ export interface IntegrationStatus {
 
 export interface DashboardSnapshot {
   serverConnection: ServerConnection
-  activeOperation: Operation | null
+  activeOperations: Operation[]
   alarmBindings: AlarmBinding[]
   map: MapSnapshot
   discordConfig: DiscordConfiguration
@@ -199,6 +199,7 @@ export interface StartOperationInput {
 }
 
 export interface OperationCloseInput {
+  target?: OperationTarget
   result: OperationResult
   closeNote?: string
   closedAt?: string

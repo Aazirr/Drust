@@ -73,7 +73,7 @@ export function createDemoSnapshot(now = new Date()): DashboardSnapshot {
       lastHeartbeatAt: '',
       lastError: null,
     },
-    activeOperation: null,
+    activeOperations: [],
     alarmBindings: [],
     map,
     discordConfig,
