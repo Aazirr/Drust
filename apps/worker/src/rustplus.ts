@@ -2,6 +2,15 @@ import type { AlarmTriggerInput, RustplusServerPairing } from '@drust/domain'
 import type { WorkerConfig } from './config.js'
 import { WorkerState } from './state.js'
 
+function formatRustTime(decimal: number): string {
+  const rawHours = Math.floor(decimal)
+  const minutes = Math.round((decimal - rawHours) * 60)
+  const hours = rawHours % 24
+  const period = hours >= 12 ? 'PM' : 'AM'
+  const hour12 = hours % 12 || 12
+  return `${hour12}:${String(minutes).padStart(2, '0')} ${period}`
+}
+
 type RustPlusLike = {
   on: (event: string, handler: (...args: any[]) => void) => void
   connect: () => void
@@ -168,7 +177,7 @@ export class RustplusBridgeManager {
 
         this.heartbeatFailures = 0
         this.state.updateServerConnection({
-          currentRustTime: `${Number(time.time).toFixed(2)} Rust`,
+          currentRustTime: formatRustTime(Number(time.time)),
           lastHeartbeatAt: new Date().toISOString(),
         })
       })
@@ -233,7 +242,7 @@ export class RustplusBridgeManager {
               return
             }
 
-            client.sendTeamMessage(`${Number(time.time).toFixed(2)} Rust (in-game time)`)
+            client.sendTeamMessage(`Current in-game time: ${formatRustTime(Number(time.time))}`)
           })
         }
       })
@@ -249,7 +258,7 @@ export class RustplusBridgeManager {
         }
 
         this.state.updateServerConnection({
-          currentRustTime: `${Number(time.time).toFixed(2)} Rust`,
+          currentRustTime: formatRustTime(Number(time.time)),
           lastHeartbeatAt: new Date().toISOString(),
         })
       })
