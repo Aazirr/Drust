@@ -717,10 +717,76 @@ button {
   margin-bottom: 14px;
 }
 
-.hero-operation-art svg {
+.hero-operation-art svg,
+.hero-operation-art img {
   width: 80px;
   height: 80px;
   flex-shrink: 0;
+}
+
+.hero-operation-art h1 {
+  margin: 0;
+  font-size: 2.2rem;
+  line-height: 1;
+}
+
+/* ── Operation slider ── */
+
+.slider-arrow {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 2.2rem;
+  font-weight: 300;
+  line-height: 1;
+  padding: 0 4px;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 180ms ease;
+  flex-shrink: 0;
+}
+
+.slider-arrow:hover {
+  opacity: 1;
+}
+
+.slider-counter {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.slider-dots {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  justify-content: center;
+}
+
+.slider-dot {
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(9, 16, 21, 0.76);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    color 180ms ease;
+}
+
+.slider-dot:hover {
+  border-color: var(--line-strong);
+  color: var(--text-soft);
+}
+
+.slider-dot-active {
+  background: rgba(217, 163, 95, 0.16);
+  border-color: rgba(217, 163, 95, 0.36);
+  color: var(--accent);
 }
 
 .content-grid,

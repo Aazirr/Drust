@@ -256,8 +256,17 @@ function OverviewPage({
   onCancelOperation: () => Promise<void>
 }) {
   const activeOps = snapshot.activeOperations.filter((op) => op.status === 'active')
-  const operation = activeOps.length > 0 ? activeOps[0] : null
+  const [selectedIndex, setSelectedIndex] = useState(0)
+  const operation = activeOps.length > 0 ? activeOps[Math.min(selectedIndex, activeOps.length - 1)] : null
   const hasMultiple = activeOps.length > 1
+
+  function goToPrev(): void {
+    setSelectedIndex((i) => (i > 0 ? i - 1 : activeOps.length - 1))
+  }
+
+  function goToNext(): void {
+    setSelectedIndex((i) => (i < activeOps.length - 1 ? i + 1 : 0))
+  }
 
   return (
     <section className="content-grid">
@@ -277,8 +286,23 @@ function OverviewPage({
 
             {operation ? (
               <div className="hero-operation-art">
+                {hasMultiple ? (
+                  <button type="button" className="slider-arrow slider-prev" onClick={goToPrev} aria-label="Previous operation">
+                    ‹
+                  </button>
+                ) : null}
                 <AssetImg path={heroSvgPath(operation.target)} className="hero-illustration" alt="" />
-                <h1>{formatTargetLabel(operation.target)}</h1>
+                <div>
+                  <h1>{formatTargetLabel(operation.target)}</h1>
+                  {hasMultiple ? (
+                    <p className="slider-counter">{selectedIndex + 1} / {activeOps.length}</p>
+                  ) : null}
+                </div>
+                {hasMultiple ? (
+                  <button type="button" className="slider-arrow slider-next" onClick={goToNext} aria-label="Next operation">
+                    ›
+                  </button>
+                ) : null}
               </div>
             ) : (
               <h1>Standing by</h1>
@@ -309,20 +333,29 @@ function OverviewPage({
           <div className="timer-panel">
             {operation ? (
               <div className="timer-ring-wrap">
-                <p className="kicker">{hasMultiple ? `${activeOps.length} Timers` : 'Countdown'}</p>
+                <p className="kicker">{hasMultiple ? `${selectedIndex + 1} of ${activeOps.length} Timers` : 'Countdown'}</p>
                 <AnimatedTimerRing
                   remainingSeconds={operation.remainingSeconds}
                   totalSeconds={Math.max(1, Math.floor((new Date(operation.endsAt).getTime() - new Date(operation.startedAt).getTime()) / 1000))}
                 />
                 <div className="timer-value">
-                  {hasMultiple
-                    ? activeOps.map((op) => (
-                        <span key={op.operationId} style={{ display: 'block', fontSize: '1rem', marginTop: 4 }}>
-                          {formatTargetLabel(op.target)}: {formatRemaining(op.remainingSeconds)}
-                        </span>
-                      ))
-                    : formatRemaining(operation.remainingSeconds)}
+                  {formatRemaining(operation.remainingSeconds)}
                 </div>
+                {hasMultiple ? (
+                  <div className="slider-dots">
+                    {activeOps.map((op, i) => (
+                      <button
+                        type="button"
+                        key={op.operationId}
+                        className={`slider-dot ${i === selectedIndex ? 'slider-dot-active' : ''}`}
+                        onClick={() => setSelectedIndex(i)}
+                        aria-label={`${formatTargetLabel(op.target)} timer`}
+                      >
+                        {formatTargetLabel(op.target)}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
               </div>
             ) : (
               <div className="idle-radar">
