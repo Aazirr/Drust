@@ -4,6 +4,7 @@ import {
   extendActiveOperation,
   startOperationFromAlarm,
   withDerivedSnapshot,
+  type AlarmBinding,
   type AlarmTriggerInput,
   type DashboardSnapshot,
   type OperationCloseInput,
@@ -28,12 +29,19 @@ function getCachedSnapshot(): DashboardSnapshot | null {
     return null
   }
 
+  let expiredBindings: AlarmBinding[] | null = null
+
   const rawSnapshot = window.sessionStorage.getItem(SNAPSHOT_CACHE_KEY)
   if (rawSnapshot) {
     try {
       const parsed = JSON.parse(rawSnapshot) as Partial<SnapshotCacheEntry>
       if (parsed.buildId === __DRUST_WEB_BUILD_ID__ && parsed.snapshot) {
         return withDerivedSnapshot(parsed.snapshot)
+      }
+
+      /* Preserve alarm bindings from expired cache so they survive deploys. */
+      if (parsed.snapshot?.alarmBindings?.length) {
+        expiredBindings = parsed.snapshot.alarmBindings
       }
 
       window.sessionStorage.removeItem(SNAPSHOT_CACHE_KEY)
@@ -44,7 +52,7 @@ function getCachedSnapshot(): DashboardSnapshot | null {
 
   const legacySnapshot = window.sessionStorage.getItem(SNAPSHOT_CACHE_LEGACY_KEY)
   if (!legacySnapshot) {
-    return null
+    return expiredBindings ? mergeMockWithBindings(expiredBindings) : null
   }
 
   try {
@@ -58,7 +66,15 @@ function getCachedSnapshot(): DashboardSnapshot | null {
     return nextSnapshot
   } catch {
     window.sessionStorage.removeItem(SNAPSHOT_CACHE_LEGACY_KEY)
-    return null
+    return expiredBindings ? mergeMockWithBindings(expiredBindings) : null
+  }
+}
+
+function mergeMockWithBindings(bindings: AlarmBinding[]): DashboardSnapshot {
+  const mock = createMockSnapshot()
+  return {
+    ...mock,
+    alarmBindings: bindings,
   }
 }
 
