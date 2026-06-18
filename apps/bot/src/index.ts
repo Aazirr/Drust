@@ -135,6 +135,28 @@ async function readJson<T>(request: IncomingMessage): Promise<T> {
   return JSON.parse(Buffer.concat(chunks).toString('utf8')) as T
 }
 
+async function resolveAlertsChannel(client: Client): Promise<ReturnType<Client['channels']['fetch']>> {
+  /* Return cached channel if still valid. */
+  if (cachedAlertsChannel && cachedAlertsChannel.id === config.alertsChannelId) {
+    return cachedAlertsChannel
+  }
+
+  /* Try cache first. */
+  const fromCache = client.channels.cache.get(config.alertsChannelId)
+  if (fromCache?.isTextBased() && fromCache.isSendable() && fromCache.type !== ChannelType.GuildVoice) {
+    cachedAlertsChannel = fromCache
+    return fromCache
+  }
+
+  /* Fall through to fetch. */
+  const fetched = await client.channels.fetch(config.alertsChannelId)
+  if (fetched?.isTextBased() && fetched.isSendable() && fetched.type !== ChannelType.GuildVoice) {
+    cachedAlertsChannel = fetched
+  }
+
+  return fetched ?? null
+}
+
 async function sendOperationAlert(
   client: Client,
   payload: OperationAlertPayload,
@@ -146,23 +168,11 @@ async function sendOperationAlert(
     return
   }
 
-  /* Resolve the alerts channel from cache or fetch. */
-  let channel: ReturnType<Client['channels']['cache']['get']> = cachedAlertsChannel
-  if (!channel || channel.id !== config.alertsChannelId) {
-    channel = client.channels.cache.get(config.alertsChannelId)
-    if (!channel) {
-      const fetched = await client.channels.fetch(config.alertsChannelId)
-      if (!fetched?.isTextBased() || !fetched.isSendable() || fetched.type === ChannelType.GuildVoice) {
-        response.writeHead(503, { 'content-type': 'application/json' })
-        response.end(JSON.stringify({ message: 'Configured alerts channel is not a text channel.' }))
-        return
-      }
-
-      channel = fetched
-      cachedAlertsChannel = fetched
-    } else {
-      cachedAlertsChannel = channel
-    }
+  const channel = await resolveAlertsChannel(client)
+  if (!channel?.isTextBased() || !channel.isSendable() || channel.type === ChannelType.GuildVoice) {
+    response.writeHead(503, { 'content-type': 'application/json' })
+    response.end(JSON.stringify({ message: 'Configured alerts channel is not a text channel.' }))
+    return
   }
 
   const embed = operationAlertEmbed(
