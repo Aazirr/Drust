@@ -21,10 +21,19 @@ interface HealthResponse {
 }
 
 export class WorkerClient {
+  private snapshotCache: { data: DashboardSnapshot; fetchedAt: number } | null = null
+  private readonly SNAPSHOT_CACHE_TTL_MS = 5000
+
   constructor(private readonly baseUrl: string) {}
 
   async fetchSnapshot(): Promise<DashboardSnapshot> {
-    return this.fetchJson<DashboardSnapshot>('/api/snapshot')
+    if (this.snapshotCache && Date.now() - this.snapshotCache.fetchedAt < this.SNAPSHOT_CACHE_TTL_MS) {
+      return this.snapshotCache.data
+    }
+
+    const data = await this.fetchJson<DashboardSnapshot>('/api/snapshot')
+    this.snapshotCache = { data, fetchedAt: Date.now() }
+    return data
   }
 
   async fetchHealth(): Promise<HealthResponse> {

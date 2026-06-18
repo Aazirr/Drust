@@ -21,6 +21,7 @@ import { WorkerClient } from './worker-client.js'
 const config = getConfig()
 const worker = new WorkerClient(config.workerUrl)
 let botReady = false
+let cachedAlertsChannel: ReturnType<Client['channels']['cache']['get']> = null
 
 interface OperationAlertPayload {
   kind: 'triggered' | 'countdown' | 'completed'
@@ -145,12 +146,21 @@ async function sendOperationAlert(
     return
   }
 
-  const channel = await client.channels.fetch(config.alertsChannelId)
-  if (!channel || !channel.isTextBased() || !channel.isSendable() || channel.type === ChannelType.GuildVoice) {
-    response.writeHead(503, { 'content-type': 'application/json' })
-    response.end(JSON.stringify({ message: 'Configured alerts channel is not a text channel.' }))
-    return
+  if (!cachedAlertsChannel || cachedAlertsChannel.id !== config.alertsChannelId) {
+    cachedAlertsChannel = client.channels.cache.get(config.alertsChannelId) ?? null
+    if (!cachedAlertsChannel) {
+      const fetched = await client.channels.fetch(config.alertsChannelId)
+      if (!fetched || !fetched.isTextBased() || !fetched.isSendable() || fetched.type === ChannelType.GuildVoice) {
+        response.writeHead(503, { 'content-type': 'application/json' })
+        response.end(JSON.stringify({ message: 'Configured alerts channel is not a text channel.' }))
+        return
+      }
+
+      cachedAlertsChannel = fetched
+    }
   }
+
+  const channel = cachedAlertsChannel
 
   const embed = operationAlertEmbed(
     payload.kind,
