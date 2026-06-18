@@ -175,13 +175,21 @@ async function handleAlarmTriggered(input: AlarmTriggerInput): Promise<void> {
 }
 
 async function persistOperation(): Promise<void> {
-  const snapshot = state.getSnapshot()
-  const operation = snapshot.activeOperation
-  if (!operation) {
-    return
-  }
+  try {
+    const snapshot = state.getSnapshot()
+    const operation = snapshot.activeOperation
+    if (!operation) {
+      return
+    }
 
-  await persistence.saveOperation(operation, completedCheckpoints)
+    await persistence.saveOperation(operation, completedCheckpoints)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown persistence error.'
+    state.updateServerConnection({
+      lastError: message,
+      lastHeartbeatAt: new Date().toISOString(),
+    })
+  }
 }
 
 function clearCountdownSchedule(): void {

@@ -79,6 +79,14 @@ export class WorkerPersistence {
         completed_checkpoints TEXT[] NOT NULL DEFAULT '{}'
       )
     `)
+
+    /* Migration: add completed_checkpoints column to existing table. */
+    await this.pool.query(`
+      DO $$ BEGIN
+        ALTER TABLE operation ADD COLUMN IF NOT EXISTS completed_checkpoints TEXT[] NOT NULL DEFAULT '{}';
+      EXCEPTION WHEN duplicate_column THEN NULL;
+      END $$
+    `)
   }
 
   async loadRustplusState(): Promise<{

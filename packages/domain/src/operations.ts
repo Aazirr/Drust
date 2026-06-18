@@ -63,6 +63,11 @@ export function startOperationFromAlarm(
   input: AlarmTriggerInput,
   now = new Date(),
 ): DashboardSnapshot {
+  /* Guard: never overwrite an already-active operation. */
+  if (snapshot.activeOperation && snapshot.activeOperation.status === 'active') {
+    return snapshot
+  }
+
   const triggeredAt = input.triggeredAt ?? now.toISOString()
   const source = input.source ?? 'smart-alarm'
   const endsAt = new Date(new Date(triggeredAt).getTime() + 15 * 60 * 1000).toISOString()
