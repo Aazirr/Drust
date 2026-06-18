@@ -244,32 +244,35 @@ async function fireMissedCheckpoints(): Promise<void> {
           ? endsAtMs
           : endsAtMs - checkpoint.remainingMinutes * 60 * 1000
 
-      if (nowMs >= triggerAtMs) {
-        opCheckpoints.push(checkpoint.checkpointId)
-        completedCheckpoints.set(opId, opCheckpoints)
-
-        void (async () => {
-          await sendCountdownAlert(
-            {
-              kind: checkpoint.kind,
-              target: operation.target,
-              source: operation.source,
-              startedAt: operation.startedAt,
-              endsAt: operation.endsAt,
-              operationId: operation.operationId,
-              remainingMinutes: checkpoint.kind === 'countdown' ? checkpoint.remainingMinutes : undefined,
-            },
-            checkpoint.activityMessage,
-          )
-          await persistence.saveOperation(operation, completedCheckpoints.get(opId) ?? [])
-        })().catch((error) => {
-          const message = error instanceof Error ? error.message : 'Unknown Discord countdown delivery error.'
-          state.updateServerConnection({
-            lastError: message,
-            lastHeartbeatAt: new Date().toISOString(),
-          })
-        })
+      /* Guard: skip if timestamp is invalid or not yet reached. */
+      if (!Number.isFinite(triggerAtMs) || nowMs < triggerAtMs) {
+        return
       }
+
+      opCheckpoints.push(checkpoint.checkpointId)
+      completedCheckpoints.set(opId, opCheckpoints)
+
+      void (async () => {
+        await sendCountdownAlert(
+          {
+            kind: checkpoint.kind,
+            target: operation.target,
+            source: operation.source,
+            startedAt: operation.startedAt,
+            endsAt: operation.endsAt,
+            operationId: operation.operationId,
+            remainingMinutes: checkpoint.kind === 'countdown' ? checkpoint.remainingMinutes : undefined,
+          },
+          checkpoint.activityMessage,
+        )
+        await persistence.saveOperation(operation, completedCheckpoints.get(opId) ?? [])
+      })().catch((error) => {
+        const message = error instanceof Error ? error.message : 'Unknown Discord countdown delivery error.'
+        state.updateServerConnection({
+          lastError: message,
+          lastHeartbeatAt: new Date().toISOString(),
+        })
+      })
     })
   }
 }
@@ -297,7 +300,8 @@ function syncCountdownSchedule(): void {
           : endsAtMs - checkpoint.remainingMinutes * 60 * 1000
       const delayMs = triggerAtMs - Date.now()
 
-      if (delayMs <= 0) {
+      /* Guard: skip past checkpoints and invalid (NaN) timestamps. */
+      if (!Number.isFinite(delayMs) || delayMs <= 0) {
         return
       }
 
