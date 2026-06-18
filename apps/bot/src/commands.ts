@@ -35,6 +35,14 @@ export const commandDefinitions = [
   new SlashCommandBuilder()
     .setName('timer-extend')
     .setDescription('Extend an active operation timer.')
+    .addIntegerOption((option) =>
+      option
+        .setName('minutes')
+        .setDescription('Minutes to add.')
+        .setRequired(true)
+        .setMinValue(1)
+        .setMaxValue(30),
+    )
     .addStringOption((option) =>
       option
         .setName('target')
@@ -45,29 +53,10 @@ export const commandDefinitions = [
           { name: 'Large Oil', value: 'large-oil' },
           { name: 'Cargo', value: 'cargo' },
         ),
-    )
-    .addIntegerOption((option) =>
-      option
-        .setName('minutes')
-        .setDescription('Minutes to add.')
-        .setRequired(true)
-        .setMinValue(1)
-        .setMaxValue(30),
     ),
   new SlashCommandBuilder()
     .setName('op-close')
     .setDescription('Close an active operation.')
-    .addStringOption((option) =>
-      option
-        .setName('target')
-        .setDescription('Which target to close (optional).')
-        .setRequired(false)
-        .addChoices(
-          { name: 'Small Oil', value: 'small-oil' },
-          { name: 'Large Oil', value: 'large-oil' },
-          { name: 'Cargo', value: 'cargo' },
-        ),
-    )
     .addStringOption((option) =>
       option
         .setName('result')
@@ -77,6 +66,17 @@ export const commandDefinitions = [
           { name: 'Success', value: 'success' },
           { name: 'Failed', value: 'failed' },
           { name: 'Aborted', value: 'aborted' },
+        ),
+    )
+    .addStringOption((option) =>
+      option
+        .setName('target')
+        .setDescription('Which target to close (optional).')
+        .setRequired(false)
+        .addChoices(
+          { name: 'Small Oil', value: 'small-oil' },
+          { name: 'Large Oil', value: 'large-oil' },
+          { name: 'Cargo', value: 'cargo' },
         ),
     )
     .addStringOption((option) =>
