@@ -964,6 +964,7 @@ function App() {
       target,
       entityId,
       source: 'smart-alarm',
+      test: true,
     })
   }
 

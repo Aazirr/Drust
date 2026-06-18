@@ -142,7 +142,12 @@ async function readJson<T>(request: IncomingMessage): Promise<T> {
 
 async function handleAlarmTriggered(input: AlarmTriggerInput): Promise<void> {
   state.triggerSmartAlarm(input)
-  syncCountdownSchedule()
+
+  /* Test fires skip countdown scheduling — only verify the alert pathway. */
+  if (!input.test) {
+    syncCountdownSchedule()
+  }
+
   await persistOperation()
 
   if (!discord.enabled) {

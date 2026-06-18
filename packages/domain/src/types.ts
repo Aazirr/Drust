@@ -187,6 +187,7 @@ export interface AlarmTriggerInput {
   entityId: string
   source?: OperationSource
   triggeredAt?: string
+  test?: boolean
 }
 
 export interface StartOperationInput {
