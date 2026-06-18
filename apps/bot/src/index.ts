@@ -21,7 +21,7 @@ import { WorkerClient } from './worker-client.js'
 const config = getConfig()
 const worker = new WorkerClient(config.workerUrl)
 let botReady = false
-let cachedAlertsChannel: ReturnType<Client['channels']['cache']['get']> = null
+let cachedAlertsChannel: NonNullable<ReturnType<Client['channels']['cache']['get']>> | undefined
 
 interface OperationAlertPayload {
   kind: 'triggered' | 'countdown' | 'completed'
@@ -146,21 +146,24 @@ async function sendOperationAlert(
     return
   }
 
-  if (!cachedAlertsChannel || cachedAlertsChannel.id !== config.alertsChannelId) {
-    cachedAlertsChannel = client.channels.cache.get(config.alertsChannelId) ?? null
-    if (!cachedAlertsChannel) {
+  /* Resolve the alerts channel from cache or fetch. */
+  let channel: ReturnType<Client['channels']['cache']['get']> = cachedAlertsChannel
+  if (!channel || channel.id !== config.alertsChannelId) {
+    channel = client.channels.cache.get(config.alertsChannelId)
+    if (!channel) {
       const fetched = await client.channels.fetch(config.alertsChannelId)
-      if (!fetched || !fetched.isTextBased() || !fetched.isSendable() || fetched.type === ChannelType.GuildVoice) {
+      if (!fetched?.isTextBased() || !fetched.isSendable() || fetched.type === ChannelType.GuildVoice) {
         response.writeHead(503, { 'content-type': 'application/json' })
         response.end(JSON.stringify({ message: 'Configured alerts channel is not a text channel.' }))
         return
       }
 
+      channel = fetched
       cachedAlertsChannel = fetched
+    } else {
+      cachedAlertsChannel = channel
     }
   }
-
-  const channel = cachedAlertsChannel
 
   const embed = operationAlertEmbed(
     payload.kind,
@@ -172,10 +175,9 @@ async function sendOperationAlert(
   )
 
   const OPERATIONS_ROLE_ID = '1277594004644565114'
-  const rolePrefix = `<@&${OPERATIONS_ROLE_ID}> `
 
   await channel.send({
-    content: rolePrefix,
+    content: `<@&${OPERATIONS_ROLE_ID}> `,
     embeds: [embed],
     allowedMentions: { roles: [OPERATIONS_ROLE_ID] },
   })
