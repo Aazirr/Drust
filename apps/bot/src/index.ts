@@ -186,12 +186,12 @@ async function sendOperationAlert(
     payload.remainingMinutes,
   )
 
-  const OPERATIONS_ROLE_ID = '1277594004644565114'
+  const roleId = config.rustRoleId
 
   await channel.send({
-    content: `<@&${OPERATIONS_ROLE_ID}> `,
+    content: roleId ? `<@&${roleId}>` : undefined,
     embeds: [embed],
-    allowedMentions: { roles: [OPERATIONS_ROLE_ID] },
+    allowedMentions: roleId ? { roles: [roleId] } : { parse: [] },
   })
 
   response.writeHead(200, { 'content-type': 'application/json' })

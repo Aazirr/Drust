@@ -1,6 +1,6 @@
 # Development Phases
 
-Last updated: 2026-06-14
+Last updated: 2026-06-19
 
 ## Phase 0 - Discovery
 
@@ -79,6 +79,7 @@ Status: In progress
 - [x] Corrected the Drust wordmark and loading splash to use a literal, readable `DRUST` lockup instead of abstract letter-shape visuals.
 - [x] Replaced the Drust monogram with a mouse-inspired circular badge based on the provided reference image.
 - [x] Reworked the Drust logo to lean more toward a rat-inspired emblem while staying original to the brand.
+- [x] Hardened the alert system so triggered and countdown Discord alerts are only marked complete after successful bot delivery, missed alerts can retry, rescheduling preserves checkpoint history, and bot role pings use the configured Rust role.
 
 ## Phase 3 - Validation
 
