@@ -53,6 +53,8 @@ const HEARTBEAT_INTERVAL_MS = 30_000
 const HEARTBEAT_DEGRADED_THRESHOLD = 2
 const HEARTBEAT_DISCONNECTED_THRESHOLD = 5
 const TEAM_MESSAGE_DELAY_MS = 800
+const RECONNECT_BASE_DELAY_MS = 5_000
+const RECONNECT_MAX_DELAY_MS = 60_000
 
 function isRustplusConfigured(config: {
   serverIp: string | null
@@ -121,6 +123,8 @@ export class RustplusBridgeManager {
   private teamMessageQueue: Promise<void> = Promise.resolve()
   private knownOnlineStates = new Map<string, boolean>()
   private teamInfoInitialized = false
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null
+  private reconnectAttempts = 0
 
   constructor(
     private readonly state: WorkerState,
@@ -157,6 +161,48 @@ export class RustplusBridgeManager {
     if (this.client && entityId) {
       this.client.getEntityInfo(entityId)
     }
+  }
+
+  private clearReconnectTimer(): void {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer)
+      this.reconnectTimer = null
+    }
+  }
+
+  private scheduleReconnect(reason: string): void {
+    if (!this.currentConnection || this.reconnectTimer) {
+      return
+    }
+
+    const delayMs = Math.min(
+      RECONNECT_MAX_DELAY_MS,
+      RECONNECT_BASE_DELAY_MS * Math.pow(2, this.reconnectAttempts),
+    )
+    this.reconnectAttempts += 1
+
+    this.state.updateServerConnection({
+      connectionStatus: 'degraded',
+      lastError: `${reason} Reconnecting in ${Math.round(delayMs / 1000)}s.`,
+      lastHeartbeatAt: new Date().toISOString(),
+    })
+
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null
+      if (!this.currentConnection) {
+        return
+      }
+
+      void this.connect(this.currentConnection).catch((error) => {
+        const message = error instanceof Error ? error.message : 'Unknown Rust+ reconnect error.'
+        this.state.updateServerConnection({
+          connectionStatus: 'degraded',
+          lastError: message,
+          lastHeartbeatAt: new Date().toISOString(),
+        })
+        this.scheduleReconnect(message)
+      })
+    }, delayMs)
   }
 
   sendTeamMessage(message: string): void {
@@ -364,17 +410,14 @@ export class RustplusBridgeManager {
           }
 
           if (this.heartbeatFailures >= HEARTBEAT_DISCONNECTED_THRESHOLD) {
-            this.state.updateServerConnection({
-              connectionStatus: 'disconnected',
-              lastError: `Rust+ heartbeat lost after ${this.heartbeatFailures} failures.`,
-              lastHeartbeatAt: new Date().toISOString(),
-            })
+            this.scheduleReconnect(`Rust+ heartbeat lost after ${this.heartbeatFailures} failures.`)
           }
 
           return
         }
 
         this.heartbeatFailures = 0
+        this.reconnectAttempts = 0
         this.state.updateServerConnection({
           currentRustTime: formatRustTime(Number(time.time)),
           lastHeartbeatAt: new Date().toISOString(),
@@ -386,6 +429,7 @@ export class RustplusBridgeManager {
 
   private async connect(connection: RustplusConnectionInput): Promise<void> {
     const currentSession = ++this.sessionId
+    this.clearReconnectTimer()
     this.disconnectCurrentClient()
     const activeConnection = { ...connection }
     this.currentConnection = activeConnection
@@ -420,6 +464,7 @@ export class RustplusBridgeManager {
         return
       }
 
+      this.reconnectAttempts = 0
       this.state.setRustplusMode('connected')
       this.startHeartbeat()
       this.flushPendingTeamMessages()
@@ -458,6 +503,7 @@ export class RustplusBridgeManager {
         lastError: 'Rust+ disconnected.',
         lastHeartbeatAt: new Date().toISOString(),
       })
+      this.scheduleReconnect('Rust+ disconnected.')
     })
 
     client.on('error', (error: Error) => {
@@ -470,6 +516,7 @@ export class RustplusBridgeManager {
         lastError: error.message,
         lastHeartbeatAt: new Date().toISOString(),
       })
+      this.scheduleReconnect(error.message)
     })
 
     client.on('message', async (message: any) => {
