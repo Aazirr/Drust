@@ -60,6 +60,10 @@ The Rust+ team chat surface can carry a small set of quick coordination commands
 
 - `!time`
   - Shows the current in-game Rust time.
+- `!help`
+  - Shows the in-game command list.
+- `!commands`
+  - Alias for `!help`.
 - `!timer [hours:minutes] [optional name]`
   - Starts a custom team timer.
   - When it finishes, Drust posts an in-game team chat notification and a Discord alert.

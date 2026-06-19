@@ -197,6 +197,11 @@ export class RustplusBridgeManager {
     this.flushPendingTeamMessages()
   }
 
+  private sendCommandHelp(): void {
+    this.sendTeamMessage('Drust commands: !help | !commands | !time | !timer [hours:minutes] [name] | !checktimer [name]')
+    this.sendTeamMessage('Notes: !addnote [content] | !deletenote | !viewnotes')
+  }
+
   private isDuplicateTrigger(entityId: string): boolean {
     const lastTrigger = this.lastTriggeredAt.get(entityId) ?? 0
     return Date.now() - lastTrigger < ALARM_DEDUPE_WINDOW_MS
@@ -241,6 +246,11 @@ export class RustplusBridgeManager {
 
   private async handleTeamCommand(rawText: string, senderSteamId: string, senderName: string): Promise<boolean> {
     const text = rawText.trim()
+    if (text === '!help' || text === '!commands') {
+      this.sendCommandHelp()
+      return true
+    }
+
     if (text === '!time') {
       if (!this.client) {
         return true
