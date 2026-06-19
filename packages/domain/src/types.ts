@@ -11,6 +11,8 @@ export type ActivityType =
   | 'marker-detected'
   | 'connection-change'
   | 'discord-sent'
+export type DebugLogLevel = 'info' | 'warn' | 'error'
+export type DebugLogCategory = 'rustplus' | 'alarm' | 'discord' | 'worker' | 'persistence' | 'web'
 
 export interface ServerConnection {
   serverId: string
@@ -83,6 +85,17 @@ export interface ActivityLog {
   target: OperationTarget | null
   source: OperationSource | null
   message: string
+  createdAt: string
+}
+
+export interface DebugLogEntry {
+  eventId: string
+  level: DebugLogLevel
+  category: DebugLogCategory
+  message: string
+  detail: string | null
+  target: OperationTarget | null
+  entityId: string | null
   createdAt: string
 }
 
@@ -173,6 +186,7 @@ export interface DashboardSnapshot {
   map: MapSnapshot
   discordConfig: DiscordConfiguration
   activityLog: ActivityLog[]
+  debugLog: DebugLogEntry[]
   roles: RoleAssignment[]
   checklist: ChecklistItem[]
   notes: string[]

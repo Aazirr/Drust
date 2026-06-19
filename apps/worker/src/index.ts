@@ -87,18 +87,35 @@ function clearCustomTimerSchedule(timerId: string): void {
 
 async function sendTeamDiscordAlert(payload: BotTeamAlertPayload, activityMessage: string): Promise<boolean> {
   if (!discord.enabled) {
+    state.recordDebugLog({
+      level: 'warn',
+      category: 'discord',
+      message: 'Skipped team Discord alert because delivery is disabled.',
+      detail: payload.title,
+    })
     return false
   }
 
   try {
     await discord.sendTeamAlert(payload)
     state.recordDiscordMessage(activityMessage)
+    state.recordDebugLog({
+      category: 'discord',
+      message: 'Delivered team Discord alert.',
+      detail: payload.title,
+    })
     return true
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown Discord team alert delivery error.'
     state.updateServerConnection({
       lastError: message,
       lastHeartbeatAt: new Date().toISOString(),
+    })
+    state.recordDebugLog({
+      level: 'error',
+      category: 'discord',
+      message: 'Team Discord alert delivery failed.',
+      detail: message,
     })
     return false
   }
@@ -276,6 +293,11 @@ async function refreshDiscordStatus(force = false): Promise<void> {
 
 async function hydratePersistedRustplusState(): Promise<void> {
   await persistence.init()
+  state.recordDebugLog({
+    category: 'worker',
+    message: 'Hydrating persisted Rust+ state.',
+    detail: persistence.enabled ? 'Postgres persistence enabled.' : 'Postgres persistence disabled.',
+  })
 
   const persistedState = await persistence.loadRustplusState()
   const { serverPairing, alarmBindings } = persistedState
@@ -289,13 +311,30 @@ async function hydratePersistedRustplusState(): Promise<void> {
   persistedChatTimers.forEach((timer) => scheduleChatTimer(timer))
 
   if (serverPairing) {
+    state.recordDebugLog({
+      category: 'rustplus',
+      message: 'Importing persisted Rust+ server pairing.',
+      detail: `${serverPairing.serverName} ${serverPairing.serverIp}:${serverPairing.appPort}`,
+    })
     state.applyRustplusPairingImport(serverPairing)
     await rustplusBridge.importPairing(serverPairing, config)
   } else {
+    state.recordDebugLog({
+      category: 'rustplus',
+      message: 'Starting Rust+ bridge from worker config.',
+      detail: rustplusCredentialsConfigured ? 'Credentials are configured.' : 'Credentials are missing.',
+    })
     await rustplusBridge.startFromConfig(config)
   }
 
   alarmBindings.forEach((binding) => {
+    state.recordDebugLog({
+      category: 'alarm',
+      message: 'Applying persisted Smart Alarm binding.',
+      detail: `Target ${binding.target}, entity ${binding.entityId}.`,
+      target: binding.target,
+      entityId: binding.entityId,
+    })
     state.applySmartAlarmBindingImport(binding)
     const target = binding.target as 'small-oil' | 'large-oil'
     rustplusBridge.updateAlarmBinding(target, binding.entityId)
@@ -337,27 +376,76 @@ async function readJson<T>(request: IncomingMessage): Promise<T> {
 }
 
 async function handleAlarmTriggered(input: AlarmTriggerInput): Promise<void> {
+  state.recordDebugLog({
+    category: 'alarm',
+    message: 'Smart Alarm trigger received by worker.',
+    detail: input.test ? 'Dashboard test fire.' : 'Live Rust+ Smart Alarm broadcast.',
+    target: input.target,
+    entityId: input.entityId,
+  })
   state.triggerSmartAlarm(input)
+  state.recordDebugLog({
+    category: 'alarm',
+    message: 'Snapshot updated from Smart Alarm trigger.',
+    detail: `Active operations: ${state.getSnapshot().activeOperations.length}.`,
+    target: input.target,
+    entityId: input.entityId,
+  })
 
   /* Test fires skip countdown scheduling — only verify the alert pathway. */
   if (!input.test) {
+    state.recordDebugLog({
+      category: 'alarm',
+      message: 'Syncing countdown schedule for live alarm.',
+      target: input.target,
+      entityId: input.entityId,
+    })
     syncCountdownSchedule()
+  } else {
+    state.recordDebugLog({
+      category: 'alarm',
+      message: 'Skipped countdown schedule for dashboard test alarm.',
+      target: input.target,
+      entityId: input.entityId,
+    })
   }
 
   await persistOperation()
 
   if (!discord.enabled) {
+    state.recordDebugLog({
+      level: 'warn',
+      category: 'discord',
+      message: 'Skipped operation alert because Discord delivery is disabled.',
+      target: input.target,
+      entityId: input.entityId,
+    })
     return
   }
 
   const snapshot = state.getSnapshot()
   const operation = snapshot.activeOperations.find((op) => op.target === input.target && op.status === 'active')
   if (!operation) {
+    state.recordDebugLog({
+      level: 'warn',
+      category: 'alarm',
+      message: 'No active operation found after Smart Alarm trigger.',
+      detail: 'A duplicate active operation for this target may already exist.',
+      target: input.target,
+      entityId: input.entityId,
+    })
     return
   }
 
   try {
     if (hasCompletedCheckpoint(operation.operationId, TRIGGERED_CHECKPOINT_ID)) {
+      state.recordDebugLog({
+        category: 'discord',
+        message: 'Skipped duplicate triggered checkpoint delivery.',
+        detail: operation.operationId,
+        target: operation.target,
+        entityId: operation.triggerEntityId,
+      })
       return
     }
 
@@ -373,6 +461,22 @@ async function handleAlarmTriggered(input: AlarmTriggerInput): Promise<void> {
     if (delivered) {
       markCheckpointCompleted(operation.operationId, TRIGGERED_CHECKPOINT_ID)
       await persistOperation(operation.operationId)
+      state.recordDebugLog({
+        category: 'discord',
+        message: 'Triggered operation alert delivered and checkpoint persisted.',
+        detail: operation.operationId,
+        target: operation.target,
+        entityId: operation.triggerEntityId,
+      })
+    } else {
+      state.recordDebugLog({
+        level: 'warn',
+        category: 'discord',
+        message: 'Triggered operation alert was not delivered.',
+        detail: operation.operationId,
+        target: operation.target,
+        entityId: operation.triggerEntityId,
+      })
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown Discord alert delivery error.'
@@ -381,6 +485,14 @@ async function handleAlarmTriggered(input: AlarmTriggerInput): Promise<void> {
       lastHeartbeatAt: new Date().toISOString(),
     })
     state.recordDiscordMessage('Alarm triggered, but Discord delivery failed.')
+    state.recordDebugLog({
+      level: 'error',
+      category: 'discord',
+      message: 'Triggered operation alert threw an error.',
+      detail: message,
+      target: input.target,
+      entityId: input.entityId,
+    })
   }
 }
 
@@ -398,6 +510,12 @@ async function persistOperation(operationId?: string): Promise<void> {
     state.updateServerConnection({
       lastError: message,
       lastHeartbeatAt: new Date().toISOString(),
+    })
+    state.recordDebugLog({
+      level: 'error',
+      category: 'persistence',
+      message: 'Failed to persist operation state.',
+      detail: message,
     })
   }
 }
@@ -442,18 +560,38 @@ function pruneCheckpointState(activeOperationIds: string[]): void {
 
 async function sendOperationAlert(payload: BotOperationAlertPayload, activityMessage: string): Promise<boolean> {
   if (!discord.enabled) {
+    state.recordDebugLog({
+      level: 'warn',
+      category: 'discord',
+      message: 'Skipped operation Discord alert because delivery is disabled.',
+      detail: payload.operationId,
+      target: payload.target,
+    })
     return false
   }
 
   try {
     await discord.sendOperationAlert(payload)
     state.recordDiscordMessage(activityMessage)
+    state.recordDebugLog({
+      category: 'discord',
+      message: 'Delivered operation Discord alert.',
+      detail: `${payload.kind} ${payload.operationId}`,
+      target: payload.target,
+    })
     return true
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown Discord countdown delivery error.'
     state.updateServerConnection({
       lastError: message,
       lastHeartbeatAt: new Date().toISOString(),
+    })
+    state.recordDebugLog({
+      level: 'error',
+      category: 'discord',
+      message: 'Operation Discord alert delivery failed.',
+      detail: message,
+      target: payload.target,
     })
     return false
   }
@@ -532,6 +670,11 @@ function syncCountdownSchedule(): void {
   const activeOps = snapshot.activeOperations.filter(
     (op) => op.status === 'active' && op.source === 'smart-alarm' && (op.target === 'small-oil' || op.target === 'large-oil'),
   )
+  state.recordDebugLog({
+    category: 'alarm',
+    message: 'Rebuilt Smart Alarm countdown schedule.',
+    detail: `${activeOps.length} active Smart Alarm operation(s).`,
+  })
 
   pruneCheckpointState(activeOps.map((operation) => operation.operationId))
 
@@ -652,6 +795,13 @@ const server = createServer(async (request: IncomingMessage, response: ServerRes
 
   if (request.method === 'POST' && requestUrl.pathname === '/api/events/smart-alarm') {
     const payload = await readJson<AlarmTriggerInput>(request)
+    state.recordDebugLog({
+      category: 'web',
+      message: 'Received manual Smart Alarm event API request.',
+      detail: JSON.stringify(payload),
+      target: payload.target,
+      entityId: payload.entityId,
+    })
     await handleAlarmTriggered(payload)
     writeJson(response, 200, state.getSnapshot())
     return
@@ -703,6 +853,13 @@ const server = createServer(async (request: IncomingMessage, response: ServerRes
 
     await persistence.saveAlarmBinding(payload)
     const nextSnapshot = state.applySmartAlarmBindingImport(payload)
+    state.recordDebugLog({
+      category: 'alarm',
+      message: 'Smart Alarm binding imported from dashboard/helper.',
+      detail: `Target ${payload.target}, entity ${payload.entityId}.`,
+      target: payload.target,
+      entityId: payload.entityId,
+    })
     rustplusBridge.updateAlarmBinding(payload.target, payload.entityId)
     writeJson(response, 200, nextSnapshot)
     return
@@ -717,6 +874,12 @@ const server = createServer(async (request: IncomingMessage, response: ServerRes
 
     await persistence.deleteAlarmBinding(payload.target)
     const nextSnapshot = state.removeSmartAlarmBinding(payload.target)
+    state.recordDebugLog({
+      level: 'warn',
+      category: 'alarm',
+      message: 'Smart Alarm binding removed.',
+      target: payload.target,
+    })
     rustplusBridge.updateAlarmBinding(payload.target, null)
     writeJson(response, 200, nextSnapshot)
     return
@@ -772,6 +935,12 @@ server.listen(config.port, async () => {
       connectionStatus: 'degraded',
       lastError: message,
       lastHeartbeatAt: new Date().toISOString(),
+    })
+    state.recordDebugLog({
+      level: 'error',
+      category: 'worker',
+      message: 'Worker startup hydration failed.',
+      detail: message,
     })
   }
 })

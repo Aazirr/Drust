@@ -78,6 +78,7 @@ export function createDemoSnapshot(now = new Date()): DashboardSnapshot {
     map,
     discordConfig,
     activityLog: [],
+    debugLog: [],
     roles: [],
     checklist: [],
     notes: [],

@@ -46,12 +46,13 @@ function AssetImg({ path, className, alt, style }: { path: string; className?: s
   return <img src={`/ui-rework-assets/${path}`} className={className} alt={alt ?? ''} draggable={false} style={style} />
 }
 
-type AppSection = 'overview' | 'map' | 'config'
+type AppSection = 'overview' | 'map' | 'config' | 'debug'
 
 const navItems: Array<{ id: AppSection; label: string; detail: string }> = [
   { id: 'overview', label: 'Overview', detail: 'Live operation, alarms, team prep' },
   { id: 'map', label: 'Map', detail: 'Markers, team positions, target watch' },
   { id: 'config', label: 'Config', detail: 'Rust+, Discord, alarm bindings' },
+  { id: 'debug', label: 'Debug', detail: 'Alert logs, bridge state, delivery trace' },
 ]
 
 function formatTargetLabel(target: OperationTarget): string {
@@ -564,6 +565,101 @@ function MapViewPage({ snapshot }: { snapshot: DashboardSnapshot }) {
   )
 }
 
+function DebugLogsPage({ snapshot }: { snapshot: DashboardSnapshot }) {
+  const logs = snapshot.debugLog ?? []
+  const errorCount = logs.filter((entry) => entry.level === 'error').length
+  const warnCount = logs.filter((entry) => entry.level === 'warn').length
+  const alarmLogs = logs.filter((entry) => entry.category === 'alarm').length
+  const latestLiveAlarm = logs.find(
+    (entry) => entry.category === 'alarm' && entry.message.includes('Live Rust+ Smart Alarm'),
+  )
+
+  return (
+    <section className="debug-page">
+      <section className="panel">
+        <SectionHeading
+          title="Debug logs"
+          detail="Detailed worker trace for Rust+, Smart Alarm handling, Discord delivery, and persistence."
+          meta={`${logs.length} retained`}
+        />
+        <div className="debug-summary-grid">
+          <FlagCard label="Errors" value={String(errorCount)} />
+          <FlagCard label="Warnings" value={String(warnCount)} />
+          <FlagCard label="Alarm Events" value={String(alarmLogs)} />
+          <FlagCard label="Latest Live Alarm" value={latestLiveAlarm ? formatShortTime(latestLiveAlarm.createdAt) : 'None'} />
+        </div>
+      </section>
+
+      <section className="debug-layout">
+        <section className="panel">
+          <SectionHeading
+            title="Alert pipeline"
+            detail="Follow the path from Rust+ broadcast to operation state to Discord delivery."
+          />
+          <div className="debug-log-list">
+            {logs.length > 0 ? (
+              logs.map((entry) => (
+                <article className={`debug-log-row debug-${entry.level}`} key={entry.eventId}>
+                  <div className="debug-log-meta">
+                    <strong>{formatShortTime(entry.createdAt)}</strong>
+                    <span>{entry.level}</span>
+                    <span>{entry.category}</span>
+                  </div>
+                  <div className="debug-log-body">
+                    <h3>{entry.message}</h3>
+                    {entry.detail ? <p>{entry.detail}</p> : null}
+                    <dl>
+                      <div>
+                        <dt>Target</dt>
+                        <dd>{entry.target ? formatTargetLabel(entry.target) : 'N/A'}</dd>
+                      </div>
+                      <div>
+                        <dt>Entity</dt>
+                        <dd>{entry.entityId ?? 'N/A'}</dd>
+                      </div>
+                    </dl>
+                  </div>
+                </article>
+              ))
+            ) : (
+              <EmptyState message="No debug logs yet. Refresh after firing a test alarm or waiting for a live Rust+ event." />
+            )}
+          </div>
+        </section>
+
+        <aside className="side-column">
+          <section className="panel">
+            <SectionHeading title="Current bindings" detail="Entity IDs the bridge should match." />
+            <div className="config-list">
+              {snapshot.alarmBindings.length > 0 ? (
+                snapshot.alarmBindings.map((binding) => (
+                  <ConfigItem
+                    key={binding.bindingId}
+                    label={formatTargetLabel(binding.target)}
+                    value={`${binding.enabled ? 'Armed' : 'Disabled'} #${binding.entityId}`}
+                  />
+                ))
+              ) : (
+                <EmptyState message="No Smart Alarm bindings in the current snapshot." />
+              )}
+            </div>
+          </section>
+
+          <section className="panel">
+            <SectionHeading title="Service state" detail="Fast read on the two delivery legs." />
+            <div className="config-list">
+              <ConfigItem label="Rust+" value={formatStatusLabel(snapshot.serverConnection.connectionStatus)} />
+              <ConfigItem label="Discord" value={formatDiscordStatus(snapshot.integrations.discord)} />
+              <ConfigItem label="Last Error" value={formatDisplayValue(snapshot.serverConnection.lastError)} />
+              <ConfigItem label="Last Heartbeat" value={formatLongTime(snapshot.serverConnection.lastHeartbeatAt)} />
+            </div>
+          </section>
+        </aside>
+      </section>
+    </section>
+  )
+}
+
 function ConfigViewPage({
   snapshot,
   onTriggerAlarm,
@@ -970,6 +1066,7 @@ function App() {
               overview: 'icons/nav-overview.svg',
               map: 'icons/nav-map.svg',
               config: 'icons/nav-config.svg',
+              debug: 'icons/connection-degraded.svg',
             }
             return (
               <button
@@ -1043,6 +1140,7 @@ function App() {
           />
         )}
         {section === 'map' && <MapViewPage snapshot={activeSnapshot} />}
+        {section === 'debug' && <DebugLogsPage snapshot={activeSnapshot} />}
         {section === 'config' && (
           <ConfigViewPage
             snapshot={activeSnapshot}

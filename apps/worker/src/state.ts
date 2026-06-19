@@ -9,6 +9,8 @@ import {
   withDerivedSnapshot,
   type AlarmTriggerInput,
   type DashboardSnapshot,
+  type DebugLogCategory,
+  type DebugLogLevel,
   type Operation,
   type OperationCloseInput,
   type OperationTarget,
@@ -20,6 +22,7 @@ import {
 
 export class WorkerState {
   private snapshot: DashboardSnapshot
+  private debugSequence = 0
 
   constructor() {
     this.snapshot = createMockSnapshot()
@@ -95,6 +98,37 @@ export class WorkerState {
       },
       updatedAt: new Date().toISOString(),
     }
+  }
+
+  recordDebugLog(input: {
+    level?: DebugLogLevel
+    category: DebugLogCategory
+    message: string
+    detail?: string | null
+    target?: OperationTarget | null
+    entityId?: string | null
+  }): DashboardSnapshot {
+    const createdAt = new Date().toISOString()
+    this.debugSequence += 1
+    this.snapshot = {
+      ...this.snapshot,
+      debugLog: [
+        {
+          eventId: `debug-${createdAt.replaceAll(':', '').replaceAll('.', '').replaceAll('-', '')}-${this.debugSequence}`,
+          level: input.level ?? 'info',
+          category: input.category,
+          message: input.message,
+          detail: input.detail ?? null,
+          target: input.target ?? null,
+          entityId: input.entityId ?? null,
+          createdAt,
+        },
+        ...this.snapshot.debugLog,
+      ].slice(0, 160),
+      updatedAt: createdAt,
+    }
+
+    return this.getSnapshot()
   }
 
   syncRustplusPairingFromConfig({

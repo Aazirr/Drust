@@ -254,6 +254,29 @@ Sections:
   - enable marker validation mode
   - enable countdown pings
 
+### Page 4: Debug Logs
+
+Primary purpose: diagnose broken alert delivery without relying only on deployment logs.
+
+Sections:
+
+- Alert pipeline log
+  - Rust+ websocket connection events
+  - Smart Alarm entity subscriptions
+  - incoming entity change broadcasts
+  - ignored alarm reasons
+  - operation creation and countdown scheduling
+  - Discord delivery success, skip, and failure states
+- Current bindings
+  - Small Oil entity ID
+  - Large Oil entity ID
+  - binding enabled state
+- Service state
+  - Rust+ connection status
+  - Discord integration status
+  - last worker error
+  - last heartbeat
+
 ## Initial User Flow
 
 For now, the Oil Rig MVP should not require routine user input during the happy path.

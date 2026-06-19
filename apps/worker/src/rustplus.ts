@@ -126,8 +126,14 @@ class PatchedRustPlus extends RustPlusBase {
     })
 
     this.websocket.on('message', (data: WebSocket.RawData) => {
-      const payload = data instanceof Buffer ? data : Buffer.from(data as ArrayBuffer)
-      const message = this.AppMessage.decode(payload)
+      let message: any
+      try {
+        const payload = data instanceof Buffer ? data : Buffer.from(data as ArrayBuffer)
+        message = this.AppMessage.decode(payload)
+      } catch (error) {
+        this.emit('error', error)
+        return
+      }
 
       if (message.response && message.response.seq && this.seqCallbacks[message.response.seq]) {
         const callback = this.seqCallbacks[message.response.seq]
@@ -241,6 +247,11 @@ export class RustplusBridgeManager {
   async startFromConfig(config: WorkerConfig): Promise<void> {
     const connection = createConnectionInputFromWorkerConfig(config)
     if (!connection) {
+      this.state.recordDebugLog({
+        level: 'warn',
+        category: 'rustplus',
+        message: 'Rust+ bridge did not start because credentials are missing.',
+      })
       this.state.setRustplusMode('mock')
       return
     }
@@ -255,6 +266,14 @@ export class RustplusBridgeManager {
 
   updateAlarmBinding(target: 'small-oil' | 'large-oil', entityId: string | null): void {
     if (!this.currentConnection) {
+      this.state.recordDebugLog({
+        level: 'warn',
+        category: 'alarm',
+        message: 'Smart Alarm binding changed while Rust+ is not connected.',
+        detail: entityId ? `Target ${target}, entity ${entityId}.` : `Target ${target} removed.`,
+        target,
+        entityId,
+      })
       return
     }
 
@@ -265,7 +284,21 @@ export class RustplusBridgeManager {
     }
 
     if (this.client && entityId) {
+      this.state.recordDebugLog({
+        category: 'alarm',
+        message: 'Requesting Smart Alarm entity subscription.',
+        detail: `Target ${target}, entity ${entityId}.`,
+        target,
+        entityId,
+      })
       this.client.getEntityInfo(entityId)
+    } else if (!entityId) {
+      this.state.recordDebugLog({
+        level: 'warn',
+        category: 'alarm',
+        message: 'Smart Alarm entity binding removed from Rust+ bridge.',
+        target,
+      })
     }
   }
 
@@ -614,6 +647,11 @@ export class RustplusBridgeManager {
         return
       }
 
+      this.state.recordDebugLog({
+        category: 'rustplus',
+        message: 'Rust+ websocket connecting.',
+        detail: `${connection.serverIp}:${connection.appPort}`,
+      })
       this.state.updateServerConnection({ connectionStatus: 'connecting' })
     })
 
@@ -623,6 +661,11 @@ export class RustplusBridgeManager {
       }
 
       this.reconnectAttempts = 0
+      this.state.recordDebugLog({
+        category: 'rustplus',
+        message: 'Rust+ websocket connected.',
+        detail: `${connection.serverIp}:${connection.appPort}`,
+      })
       this.state.setRustplusMode('connected')
       this.startHeartbeat()
       this.startTeamPresencePolling()
@@ -645,7 +688,17 @@ export class RustplusBridgeManager {
       })
 
       const entityIds = [activeConnection.smallOilEntityId, activeConnection.largeOilEntityId].filter(Boolean) as string[]
+      this.state.recordDebugLog({
+        category: 'alarm',
+        message: 'Subscribing to configured Smart Alarm entities.',
+        detail: entityIds.length > 0 ? entityIds.join(', ') : 'No Smart Alarm entity IDs configured.',
+      })
       entityIds.forEach((entityId) => {
+        this.state.recordDebugLog({
+          category: 'alarm',
+          message: 'Requesting Smart Alarm entity info.',
+          entityId,
+        })
         client.getEntityInfo(entityId)
       })
     })
@@ -663,6 +716,12 @@ export class RustplusBridgeManager {
         lastError: 'Rust+ disconnected.',
         lastHeartbeatAt: new Date().toISOString(),
       })
+      this.state.recordDebugLog({
+        level: 'warn',
+        category: 'rustplus',
+        message: 'Rust+ websocket disconnected.',
+        detail: 'Reconnect will be scheduled.',
+      })
       this.scheduleReconnect('Rust+ disconnected.')
     })
 
@@ -675,6 +734,12 @@ export class RustplusBridgeManager {
         connectionStatus: 'degraded',
         lastError: error.message,
         lastHeartbeatAt: new Date().toISOString(),
+      })
+      this.state.recordDebugLog({
+        level: 'error',
+        category: 'rustplus',
+        message: 'Rust+ websocket error.',
+        detail: error.message,
       })
       this.scheduleReconnect(error.message)
     })
@@ -701,7 +766,7 @@ export class RustplusBridgeManager {
       }
 
       const entityChanged = message?.broadcast?.entityChanged
-      if (!entityChanged || !entityChanged.payload?.value) {
+      if (!entityChanged) {
         return
       }
 
@@ -713,15 +778,53 @@ export class RustplusBridgeManager {
             ? 'large-oil'
             : null
 
+      this.state.recordDebugLog({
+        category: 'alarm',
+        message: 'Rust+ entityChanged broadcast received.',
+        detail: `value=${String(entityChanged.payload?.value)}, target=${target ?? 'unbound'}`,
+        target,
+        entityId,
+      })
+
+      if (!entityChanged.payload?.value) {
+        this.state.recordDebugLog({
+          category: 'alarm',
+          message: 'Ignored entityChanged because payload value was not truthy.',
+          detail: JSON.stringify(entityChanged.payload ?? {}),
+          target,
+          entityId,
+        })
+        return
+      }
+
       if (!target) {
+        this.state.recordDebugLog({
+          level: 'warn',
+          category: 'alarm',
+          message: 'Ignored entityChanged because entity ID is not bound to an Oil Rig target.',
+          detail: `Configured small=${activeConnection.smallOilEntityId ?? 'none'}, large=${activeConnection.largeOilEntityId ?? 'none'}.`,
+          entityId,
+        })
         return
       }
 
       if (this.isDuplicateTrigger(entityId)) {
+        this.state.recordDebugLog({
+          category: 'alarm',
+          message: 'Ignored duplicate Smart Alarm trigger.',
+          target,
+          entityId,
+        })
         return
       }
 
       this.recordTrigger(entityId)
+      this.state.recordDebugLog({
+        category: 'alarm',
+        message: 'Dispatching Smart Alarm trigger from Rust+ broadcast.',
+        target,
+        entityId,
+      })
 
       await this.onAlarmTriggered({
         target,

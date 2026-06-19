@@ -54,6 +54,7 @@ export function withDerivedSnapshot(snapshot: DashboardSnapshot, now = new Date(
   return {
     ...snapshot,
     activeOperations,
+    debugLog: snapshot.debugLog ?? [],
     updatedAt: now.toISOString(),
   }
 }
