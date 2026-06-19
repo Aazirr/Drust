@@ -223,20 +223,12 @@ function viewPlayerNotes(): string[] {
     .map((note) => `${note.playerName}: ${note.content}`)
 }
 
-function getLoginNotes(playerSteamId: string): string[] {
-  return Array.from(playerNotes.values())
-    .filter((note) => note.steamId !== playerSteamId)
-    .sort((left, right) => left.playerName.localeCompare(right.playerName))
-    .map((note) => `Note from ${note.playerName}: ${note.content}`)
-}
-
 rustplusBridge = new RustplusBridgeManager(state, handleAlarmTriggered, {
   createTeamTimer,
   checkTeamTimer,
   addPlayerNote,
   deletePlayerNote,
   viewPlayerNotes,
-  getLoginNotes,
 })
 
 async function refreshDiscordStatus(force = false): Promise<void> {

@@ -1,4 +1,4 @@
-import type { AlarmTriggerInput, RustplusServerPairing, TeamMember } from '@drust/domain'
+import type { AlarmTriggerInput, RustplusServerPairing } from '@drust/domain'
 import type { WorkerConfig } from './config.js'
 import { WorkerState } from './state.js'
 
@@ -18,7 +18,6 @@ type RustPlusLike = {
   getEntityInfo: (entityId: string, callback?: (message: unknown) => void) => void
   getInfo: (callback?: (message: any) => void) => void
   getTime: (callback?: (message: any) => void) => void
-  getTeamInfo: (callback?: (message: any) => void) => void
   sendTeamMessage: (message: string) => void
 }
 
@@ -45,7 +44,6 @@ export interface TeamCommandCallbacks {
   addPlayerNote: (steamId: string, playerName: string, content: string) => Promise<string>
   deletePlayerNote: (steamId: string) => Promise<string>
   viewPlayerNotes: () => string[]
-  getLoginNotes: (playerSteamId: string) => string[]
 }
 
 const ALARM_DEDUPE_WINDOW_MS = 30_000
@@ -99,19 +97,6 @@ export function createConnectionInputFromPairing(
   }
 }
 
-function mapTeamMembers(teamInfo: any, nowIso: string): TeamMember[] {
-  const members = Array.isArray(teamInfo?.members) ? teamInfo.members : []
-  return members.map((member: any) => ({
-    steamId: String(member.steamId),
-    name: String(member.name ?? 'Unknown'),
-    isOnline: Boolean(member.isOnline),
-    isAlive: Boolean(member.isAlive),
-    x: Number(member.x ?? 0),
-    y: Number(member.y ?? 0),
-    lastSeenAt: nowIso,
-  }))
-}
-
 export class RustplusBridgeManager {
   private client: RustPlusLike | null = null
   private sessionId = 0
@@ -121,8 +106,6 @@ export class RustplusBridgeManager {
   private heartbeatFailures = 0
   private pendingTeamMessages: string[] = []
   private teamMessageQueue: Promise<void> = Promise.resolve()
-  private knownOnlineStates = new Map<string, boolean>()
-  private teamInfoInitialized = false
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private reconnectAttempts = 0
 
@@ -256,45 +239,6 @@ export class RustplusBridgeManager {
       })
   }
 
-  private syncTeamInfo(currentSession: number, notifyOnLogin: boolean): void {
-    if (!this.client) {
-      return
-    }
-
-    this.client.getTeamInfo((message: any) => {
-      if (!this.client || currentSession !== this.sessionId) {
-        return
-      }
-
-      const teamInfo = message?.response?.teamInfo
-      if (!teamInfo) {
-        return
-      }
-
-      const nowIso = new Date().toISOString()
-      const members = mapTeamMembers(teamInfo, nowIso)
-      this.state.setTeamMembers(members)
-
-      const nextOnlineStates = new Map<string, boolean>()
-      members.forEach((member) => {
-        nextOnlineStates.set(member.steamId, member.isOnline)
-
-        if (!this.teamInfoInitialized || !notifyOnLogin) {
-          return
-        }
-
-        const wasOnline = this.knownOnlineStates.get(member.steamId) ?? false
-        if (!wasOnline && member.isOnline) {
-          const notes = this.teamCommands.getLoginNotes(member.steamId)
-          notes.forEach((note) => this.sendTeamMessage(note))
-        }
-      })
-
-      this.knownOnlineStates = nextOnlineStates
-      this.teamInfoInitialized = true
-    })
-  }
-
   private async handleTeamCommand(rawText: string, senderSteamId: string, senderName: string): Promise<boolean> {
     const text = rawText.trim()
     if (text === '!time') {
@@ -422,7 +366,6 @@ export class RustplusBridgeManager {
           currentRustTime: formatRustTime(Number(time.time)),
           lastHeartbeatAt: new Date().toISOString(),
         })
-        this.syncTeamInfo(this.sessionId, true)
       })
     }, HEARTBEAT_INTERVAL_MS)
   }
@@ -484,7 +427,6 @@ export class RustplusBridgeManager {
           lastHeartbeatAt: new Date().toISOString(),
         })
       })
-      this.syncTeamInfo(currentSession, false)
 
       const entityIds = [activeConnection.smallOilEntityId, activeConnection.largeOilEntityId].filter(Boolean) as string[]
       entityIds.forEach((entityId) => {
@@ -536,10 +478,6 @@ export class RustplusBridgeManager {
         }
       }
 
-      if (message?.broadcast?.teamChanged?.teamInfo) {
-        this.syncTeamInfo(currentSession, true)
-      }
-
       const entityChanged = message?.broadcast?.entityChanged
       if (!entityChanged || !entityChanged.payload?.value) {
         return
@@ -582,7 +520,5 @@ export class RustplusBridgeManager {
     this.clearHeartbeat()
     this.client.disconnect()
     this.client = null
-    this.teamInfoInitialized = false
-    this.knownOnlineStates.clear()
   }
 }

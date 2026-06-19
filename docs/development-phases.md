@@ -82,6 +82,7 @@ Status: In progress
 - [x] Hardened the alert system so triggered and countdown Discord alerts are only marked complete after successful bot delivery, missed alerts can retry, rescheduling preserves checkpoint history, and bot role pings use the configured Rust role.
 - [x] Added new in-game Rust+ team chat commands for custom timers, named timer checks, persistent player notes, note deletion, note listing, login note replay, and Discord completion pings for custom timers.
 - [x] Added Rust+ websocket auto-reconnect with backoff so transient disconnects and repeated heartbeat misses no longer leave the worker stuck offline until a manual restart.
+- [x] Fixed a worker crash loop caused by Rust+ `getTeamInfo()` decode failures when team members omit status fields; paused automatic login note replay while keeping manual note commands available.
 
 ## Phase 3 - Validation
 

@@ -67,11 +67,12 @@ The Rust+ team chat surface can carry a small set of quick coordination commands
   - Shows the remaining time for an active named custom timer.
 - `!addnote [content]`
   - Saves or replaces the note owned by the player who sent the command.
-  - The note is replayed to teammates in team chat when they come online later.
 - `!deletenote`
   - Deletes the sender's saved note.
 - `!viewnotes`
   - Shows all saved player notes in team chat, one message per player note.
+
+Note replay on teammate login is paused until team presence can be read through Rust+ without hitting current `getTeamInfo()` decode failures from missing optional-looking player status fields.
 
 ## Discord Ping Rules
 
