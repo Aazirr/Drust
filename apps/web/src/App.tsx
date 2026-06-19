@@ -1,4 +1,5 @@
 import { startTransition, useDeferredValue, useState } from 'react'
+import { formatProjectLongTime, formatProjectShortTime } from '@drust/domain'
 import type {
   AlarmBinding,
   DashboardSnapshot,
@@ -66,27 +67,11 @@ function formatTargetLabel(target: OperationTarget): string {
 }
 
 function formatShortTime(timestamp: string | null): string {
-  if (!timestamp) {
-    return 'Not yet'
-  }
-
-  return new Date(timestamp).toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  return formatProjectShortTime(timestamp)
 }
 
 function formatLongTime(timestamp: string | null): string {
-  if (!timestamp) {
-    return 'Not available'
-  }
-
-  return new Date(timestamp).toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  return formatProjectLongTime(timestamp)
 }
 
 function formatRemaining(seconds: number | null): string {

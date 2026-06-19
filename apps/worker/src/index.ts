@@ -1,4 +1,5 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
+import { formatProjectShortTime } from '@drust/domain'
 import { getConfig } from './config.js'
 import { DiscordNotifier, type BotOperationAlertPayload, type BotTeamAlertPayload } from './discord.js'
 import {
@@ -115,19 +116,13 @@ async function completeChatTimer(timerId: string): Promise<void> {
 
   const label = timer.name ? `Timer "${timer.name}"` : 'Timer'
   rustplusBridge.sendTeamMessage(
-    `${label} from ${timer.createdByName} is done. Finished at ${new Date(timer.endsAt).toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-    })}.`,
+    `${label} from ${timer.createdByName} is done. Finished at ${formatProjectShortTime(timer.endsAt)}.`,
   )
 
   await sendTeamDiscordAlert(
     {
       title: timer.name ? `Timer Complete: ${timer.name}` : 'Timer Complete',
-      body: `Created by ${timer.createdByName}. Finished at ${new Date(timer.endsAt).toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-      })}.`,
+      body: `Created by ${timer.createdByName}. Finished at ${formatProjectShortTime(timer.endsAt)}.`,
     },
     'Discord bot delivered custom timer completion alert.',
   )
@@ -178,8 +173,8 @@ async function createTeamTimer(request: TeamTimerRequest): Promise<string> {
   scheduleChatTimer(timer)
 
   return request.name
-    ? `Started timer "${request.name}" for ${formatTimerDuration(request.durationHours, request.durationMinutes)}. It ends at ${new Date(endsAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}.`
-    : `Started timer for ${formatTimerDuration(request.durationHours, request.durationMinutes)}. It ends at ${new Date(endsAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}.`
+    ? `Started timer "${request.name}" for ${formatTimerDuration(request.durationHours, request.durationMinutes)}. It ends at ${formatProjectShortTime(endsAt)}.`
+    : `Started timer for ${formatTimerDuration(request.durationHours, request.durationMinutes)}. It ends at ${formatProjectShortTime(endsAt)}.`
 }
 
 function checkTeamTimer(name: string): string {

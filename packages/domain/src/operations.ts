@@ -1,4 +1,5 @@
 import { createDemoSnapshot } from './demo.js'
+import { formatProjectShortTime } from './time.js'
 import type {
   ActivityLog,
   AlarmBinding,
@@ -286,8 +287,8 @@ export function formatDiscordAlarmMessage(snapshot: DashboardSnapshot): string {
     return [
       `${roleTag}${operation.target === 'small-oil' ? 'Small Oil' : 'Large Oil'} triggered`,
       `Source: ${operation.source}`,
-      `Started: ${new Date(operation.startedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`,
-      `Crate ETA: ${new Date(operation.endsAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`,
+      `Started: ${formatProjectShortTime(operation.startedAt)}`,
+      `Crate ETA: ${formatProjectShortTime(operation.endsAt)}`,
     ].join('\n')
   }).join('\n\n')
 }

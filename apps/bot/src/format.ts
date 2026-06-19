@@ -1,3 +1,4 @@
+import { formatProjectLongTime } from '@drust/domain'
 import type { DashboardSnapshot, OperationTarget } from '@drust/domain'
 
 function labelForTarget(target: OperationTarget): string {
@@ -13,16 +14,7 @@ function labelForTarget(target: OperationTarget): string {
 }
 
 function formatTime(timestamp: string | null): string {
-  if (!timestamp) {
-    return 'Not available'
-  }
-
-  return new Date(timestamp).toLocaleString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-    month: 'short',
-    day: 'numeric',
-  })
+  return formatProjectLongTime(timestamp)
 }
 
 export function formatStatus(snapshot: DashboardSnapshot): string {

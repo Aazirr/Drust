@@ -84,6 +84,7 @@ Status: In progress
 - [x] Added Rust+ websocket auto-reconnect with backoff so transient disconnects and repeated heartbeat misses no longer leave the worker stuck offline until a manual restart.
 - [x] Fixed a worker crash loop caused by Rust+ `getTeamInfo()` decode failures when team members omit status fields; paused automatic login note replay while keeping manual note commands available.
 - [x] Added `!help` and `!commands` in-game aliases that print the current Rust+ team chat command list.
+- [x] Standardized project timer display timestamps to GMT+8 / Asia-Manila across the dashboard, Discord, and in-game timer messages.
 
 ## Phase 3 - Validation
 
