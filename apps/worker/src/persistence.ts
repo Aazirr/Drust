@@ -1,6 +1,22 @@
 import type { Operation, RustplusEntityPairing, RustplusServerPairing } from '@drust/domain'
 import { Pool } from 'pg'
 
+export interface PersistedChatTimer {
+  timerId: string
+  name: string | null
+  createdBySteamId: string
+  createdByName: string
+  createdAt: string
+  endsAt: string
+}
+
+export interface PersistedPlayerNote {
+  steamId: string
+  playerName: string
+  content: string
+  createdAt: string
+}
+
 type PersistedAlarmBindingRow = {
   target: 'small-oil' | 'large-oil'
   entity_id: string
@@ -20,6 +36,22 @@ type PersistedServerPairingRow = {
   app_port: number
   player_id: string
   player_token: string
+}
+
+type PersistedChatTimerRow = {
+  timer_id: string
+  name: string | null
+  created_by_steam_id: string
+  created_by_name: string
+  created_at: Date
+  ends_at: Date
+}
+
+type PersistedPlayerNoteRow = {
+  steam_id: string
+  player_name: string
+  content: string
+  created_at: Date
 }
 
 export class WorkerPersistence {
@@ -86,6 +118,26 @@ export class WorkerPersistence {
         ALTER TABLE operation ADD COLUMN IF NOT EXISTS completed_checkpoints TEXT[] NOT NULL DEFAULT '{}';
       EXCEPTION WHEN duplicate_column THEN NULL;
       END $$
+    `)
+
+    await this.pool.query(`
+      CREATE TABLE IF NOT EXISTS chat_timer (
+        timer_id TEXT PRIMARY KEY,
+        name TEXT,
+        created_by_steam_id TEXT NOT NULL,
+        created_by_name TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL,
+        ends_at TIMESTAMPTZ NOT NULL
+      )
+    `)
+
+    await this.pool.query(`
+      CREATE TABLE IF NOT EXISTS player_note (
+        steam_id TEXT PRIMARY KEY,
+        player_name TEXT NOT NULL,
+        content TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL
+      )
     `)
   }
 
@@ -288,6 +340,141 @@ export class WorkerPersistence {
         operation.closeNote,
         completedCheckpoints,
       ],
+    )
+  }
+
+  async loadChatTimers(): Promise<PersistedChatTimer[]> {
+    if (!this.pool) {
+      return []
+    }
+
+    const result = await this.pool.query<PersistedChatTimerRow>(`
+      SELECT
+        timer_id,
+        name,
+        created_by_steam_id,
+        created_by_name,
+        created_at,
+        ends_at
+      FROM chat_timer
+      ORDER BY ends_at ASC
+    `)
+
+    return result.rows.map((row) => ({
+      timerId: row.timer_id,
+      name: row.name,
+      createdBySteamId: row.created_by_steam_id,
+      createdByName: row.created_by_name,
+      createdAt: row.created_at.toISOString(),
+      endsAt: row.ends_at.toISOString(),
+    }))
+  }
+
+  async saveChatTimer(timer: PersistedChatTimer): Promise<void> {
+    if (!this.pool) {
+      return
+    }
+
+    await this.pool.query(
+      `
+        INSERT INTO chat_timer (
+          timer_id,
+          name,
+          created_by_steam_id,
+          created_by_name,
+          created_at,
+          ends_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6)
+        ON CONFLICT (timer_id) DO UPDATE SET
+          name = EXCLUDED.name,
+          created_by_steam_id = EXCLUDED.created_by_steam_id,
+          created_by_name = EXCLUDED.created_by_name,
+          created_at = EXCLUDED.created_at,
+          ends_at = EXCLUDED.ends_at
+      `,
+      [
+        timer.timerId,
+        timer.name,
+        timer.createdBySteamId,
+        timer.createdByName,
+        timer.createdAt,
+        timer.endsAt,
+      ],
+    )
+  }
+
+  async deleteChatTimer(timerId: string): Promise<void> {
+    if (!this.pool) {
+      return
+    }
+
+    await this.pool.query(
+      `
+        DELETE FROM chat_timer
+        WHERE timer_id = $1
+      `,
+      [timerId],
+    )
+  }
+
+  async loadPlayerNotes(): Promise<PersistedPlayerNote[]> {
+    if (!this.pool) {
+      return []
+    }
+
+    const result = await this.pool.query<PersistedPlayerNoteRow>(`
+      SELECT
+        steam_id,
+        player_name,
+        content,
+        created_at
+      FROM player_note
+      ORDER BY player_name ASC
+    `)
+
+    return result.rows.map((row) => ({
+      steamId: row.steam_id,
+      playerName: row.player_name,
+      content: row.content,
+      createdAt: row.created_at.toISOString(),
+    }))
+  }
+
+  async savePlayerNote(note: PersistedPlayerNote): Promise<void> {
+    if (!this.pool) {
+      return
+    }
+
+    await this.pool.query(
+      `
+        INSERT INTO player_note (
+          steam_id,
+          player_name,
+          content,
+          created_at
+        )
+        VALUES ($1, $2, $3, $4)
+        ON CONFLICT (steam_id) DO UPDATE SET
+          player_name = EXCLUDED.player_name,
+          content = EXCLUDED.content,
+          created_at = EXCLUDED.created_at
+      `,
+      [note.steamId, note.playerName, note.content, note.createdAt],
+    )
+  }
+
+  async deletePlayerNote(steamId: string): Promise<void> {
+    if (!this.pool) {
+      return
+    }
+
+    await this.pool.query(
+      `
+        DELETE FROM player_note
+        WHERE steam_id = $1
+      `,
+      [steamId],
     )
   }
 

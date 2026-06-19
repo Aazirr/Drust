@@ -206,3 +206,12 @@ export function timerActionEmbed(
 
   return embed.setFooter({ text: 'Drust Operations Command' }).setTimestamp()
 }
+
+export function teamAlertEmbed(title: string, body: string): EmbedBuilder {
+  return new EmbedBuilder()
+    .setColor(0xd9a35f)
+    .setTitle(title)
+    .setDescription(body)
+    .setFooter({ text: 'Drust Operations Command' })
+    .setTimestamp()
+}

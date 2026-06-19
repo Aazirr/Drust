@@ -1,8 +1,12 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { getConfig } from './config.js'
-import { DiscordNotifier, type BotOperationAlertPayload } from './discord.js'
-import { WorkerPersistence } from './persistence.js'
-import { RustplusBridgeManager } from './rustplus.js'
+import { DiscordNotifier, type BotOperationAlertPayload, type BotTeamAlertPayload } from './discord.js'
+import {
+  WorkerPersistence,
+  type PersistedChatTimer,
+  type PersistedPlayerNote,
+} from './persistence.js'
+import { RustplusBridgeManager, type TeamTimerRequest } from './rustplus.js'
 import { WorkerState } from './state.js'
 import type {
   AlarmTriggerInput,
@@ -17,7 +21,7 @@ const config = getConfig()
 const state = new WorkerState()
 const discord = new DiscordNotifier(config.discordBotUrl, config.discordBotToken)
 const persistence = new WorkerPersistence(config.databaseUrl)
-const rustplusBridge = new RustplusBridgeManager(state, handleAlarmTriggered)
+let rustplusBridge: RustplusBridgeManager
 const rustplusCredentialsConfigured = Boolean(
   config.rustplus.serverIp &&
     config.rustplus.appPort &&
@@ -28,7 +32,10 @@ const smartAlarmIdsConfigured = Boolean(
   config.rustplus.smallOilEntityId && config.rustplus.largeOilEntityId,
 )
 let countdownTimers: ReturnType<typeof setTimeout>[] = []
+let customTimerHandles = new Map<string, ReturnType<typeof setTimeout>>()
 let completedCheckpoints = new Map<string, string[]>()
+let chatTimers = new Map<string, PersistedChatTimer>()
+let playerNotes = new Map<string, PersistedPlayerNote>()
 const TRIGGERED_CHECKPOINT_ID = 'triggered'
 const COUNTDOWN_CHECKPOINTS = [
   { kind: 'countdown' as const, remainingMinutes: 5, activityMessage: 'Discord bot delivered 5 minute warning.', checkpointId: 'countdown-5' },
@@ -47,6 +54,189 @@ state.syncDiscordMode({
 state.syncRustplusPairingFromConfig({
   credentialsConfigured: rustplusCredentialsConfigured,
   smartAlarmsConfigured: smartAlarmIdsConfigured,
+})
+
+function formatTimerDuration(hours: number, minutes: number): string {
+  return `${hours}:${String(minutes).padStart(2, '0')}`
+}
+
+function formatRemainingDuration(endsAt: string): string {
+  const remainingSeconds = Math.max(0, Math.floor((new Date(endsAt).getTime() - Date.now()) / 1000))
+  const hours = Math.floor(remainingSeconds / 3600)
+  const minutes = Math.floor((remainingSeconds % 3600) / 60)
+  const seconds = remainingSeconds % 60
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+  }
+
+  return `${minutes}:${String(seconds).padStart(2, '0')}`
+}
+
+function normalizeTimerName(name: string): string {
+  return name.trim().toLowerCase()
+}
+
+function clearCustomTimerSchedule(timerId: string): void {
+  const handle = customTimerHandles.get(timerId)
+  if (handle) {
+    clearTimeout(handle)
+    customTimerHandles.delete(timerId)
+  }
+}
+
+async function sendTeamDiscordAlert(payload: BotTeamAlertPayload, activityMessage: string): Promise<boolean> {
+  if (!discord.enabled) {
+    return false
+  }
+
+  try {
+    await discord.sendTeamAlert(payload)
+    state.recordDiscordMessage(activityMessage)
+    return true
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown Discord team alert delivery error.'
+    state.updateServerConnection({
+      lastError: message,
+      lastHeartbeatAt: new Date().toISOString(),
+    })
+    return false
+  }
+}
+
+async function completeChatTimer(timerId: string): Promise<void> {
+  const timer = chatTimers.get(timerId)
+  if (!timer) {
+    return
+  }
+
+  clearCustomTimerSchedule(timerId)
+  chatTimers.delete(timerId)
+  await persistence.deleteChatTimer(timerId)
+
+  const label = timer.name ? `Timer "${timer.name}"` : 'Timer'
+  rustplusBridge.sendTeamMessage(
+    `${label} from ${timer.createdByName} is done. Finished at ${new Date(timer.endsAt).toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+    })}.`,
+  )
+
+  await sendTeamDiscordAlert(
+    {
+      title: timer.name ? `Timer Complete: ${timer.name}` : 'Timer Complete',
+      body: `Created by ${timer.createdByName}. Finished at ${new Date(timer.endsAt).toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+      })}.`,
+    },
+    'Discord bot delivered custom timer completion alert.',
+  )
+}
+
+function scheduleChatTimer(timer: PersistedChatTimer): void {
+  clearCustomTimerSchedule(timer.timerId)
+  const delayMs = new Date(timer.endsAt).getTime() - Date.now()
+  const safeDelayMs = Number.isFinite(delayMs) ? Math.max(0, delayMs) : 0
+
+  const handle = setTimeout(() => {
+    void completeChatTimer(timer.timerId).catch((error) => {
+      const message = error instanceof Error ? error.message : 'Unknown custom timer completion error.'
+      state.updateServerConnection({
+        lastError: message,
+        lastHeartbeatAt: new Date().toISOString(),
+      })
+    })
+  }, safeDelayMs)
+
+  customTimerHandles.set(timer.timerId, handle)
+}
+
+async function createTeamTimer(request: TeamTimerRequest): Promise<string> {
+  const requestedName = request.name
+  const existingNamedTimer = requestedName
+    ? Array.from(chatTimers.values()).find((timer) => timer.name && normalizeTimerName(timer.name) === normalizeTimerName(requestedName))
+    : null
+  if (existingNamedTimer) {
+    return `A timer named "${existingNamedTimer.name}" is already running.`
+  }
+
+  const createdAt = new Date().toISOString()
+  const endsAt = new Date(
+    Date.now() + (request.durationHours * 60 * 60 + request.durationMinutes * 60) * 1000,
+  ).toISOString()
+  const timer: PersistedChatTimer = {
+    timerId: `team-timer-${Date.now()}`,
+    name: request.name,
+    createdBySteamId: request.creatorSteamId,
+    createdByName: request.creatorName,
+    createdAt,
+    endsAt,
+  }
+
+  chatTimers.set(timer.timerId, timer)
+  await persistence.saveChatTimer(timer)
+  scheduleChatTimer(timer)
+
+  return request.name
+    ? `Started timer "${request.name}" for ${formatTimerDuration(request.durationHours, request.durationMinutes)}. It ends at ${new Date(endsAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}.`
+    : `Started timer for ${formatTimerDuration(request.durationHours, request.durationMinutes)}. It ends at ${new Date(endsAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}.`
+}
+
+function checkTeamTimer(name: string): string {
+  const timer = Array.from(chatTimers.values()).find(
+    (entry) => entry.name && normalizeTimerName(entry.name) === normalizeTimerName(name),
+  )
+  if (!timer) {
+    return `No active timer named "${name}".`
+  }
+
+  return `Timer "${timer.name}" by ${timer.createdByName} has ${formatRemainingDuration(timer.endsAt)} remaining.`
+}
+
+async function addPlayerNote(steamId: string, playerName: string, content: string): Promise<string> {
+  const note: PersistedPlayerNote = {
+    steamId,
+    playerName,
+    content,
+    createdAt: new Date().toISOString(),
+  }
+
+  playerNotes.set(steamId, note)
+  await persistence.savePlayerNote(note)
+  return `Saved note for ${playerName}.`
+}
+
+async function deletePlayerNote(steamId: string): Promise<string> {
+  const existing = playerNotes.get(steamId)
+  if (!existing) {
+    return 'No saved note to delete.'
+  }
+
+  playerNotes.delete(steamId)
+  await persistence.deletePlayerNote(steamId)
+  return `Deleted note for ${existing.playerName}.`
+}
+
+function viewPlayerNotes(): string[] {
+  return Array.from(playerNotes.values())
+    .sort((left, right) => left.playerName.localeCompare(right.playerName))
+    .map((note) => `${note.playerName}: ${note.content}`)
+}
+
+function getLoginNotes(playerSteamId: string): string[] {
+  return Array.from(playerNotes.values())
+    .filter((note) => note.steamId !== playerSteamId)
+    .sort((left, right) => left.playerName.localeCompare(right.playerName))
+    .map((note) => `Note from ${note.playerName}: ${note.content}`)
+}
+
+rustplusBridge = new RustplusBridgeManager(state, handleAlarmTriggered, {
+  createTeamTimer,
+  checkTeamTimer,
+  addPlayerNote,
+  deletePlayerNote,
+  viewPlayerNotes,
+  getLoginNotes,
 })
 
 async function refreshDiscordStatus(force = false): Promise<void> {
@@ -91,6 +281,14 @@ async function hydratePersistedRustplusState(): Promise<void> {
 
   const persistedState = await persistence.loadRustplusState()
   const { serverPairing, alarmBindings } = persistedState
+  const [persistedChatTimers, persistedPlayerNotes] = await Promise.all([
+    persistence.loadChatTimers(),
+    persistence.loadPlayerNotes(),
+  ])
+
+  chatTimers = new Map(persistedChatTimers.map((timer) => [timer.timerId, timer]))
+  playerNotes = new Map(persistedPlayerNotes.map((note) => [note.steamId, note]))
+  persistedChatTimers.forEach((timer) => scheduleChatTimer(timer))
 
   if (serverPairing) {
     state.applyRustplusPairingImport(serverPairing)

@@ -1,4 +1,4 @@
-import type { AlarmTriggerInput, RustplusServerPairing } from '@drust/domain'
+import type { AlarmTriggerInput, RustplusServerPairing, TeamMember } from '@drust/domain'
 import type { WorkerConfig } from './config.js'
 import { WorkerState } from './state.js'
 
@@ -18,6 +18,7 @@ type RustPlusLike = {
   getEntityInfo: (entityId: string, callback?: (message: unknown) => void) => void
   getInfo: (callback?: (message: any) => void) => void
   getTime: (callback?: (message: any) => void) => void
+  getTeamInfo: (callback?: (message: any) => void) => void
   sendTeamMessage: (message: string) => void
 }
 
@@ -30,10 +31,28 @@ export interface RustplusConnectionInput {
   largeOilEntityId: string | null
 }
 
+export interface TeamTimerRequest {
+  durationHours: number
+  durationMinutes: number
+  name: string | null
+  creatorSteamId: string
+  creatorName: string
+}
+
+export interface TeamCommandCallbacks {
+  createTeamTimer: (request: TeamTimerRequest) => Promise<string>
+  checkTeamTimer: (name: string) => string
+  addPlayerNote: (steamId: string, playerName: string, content: string) => Promise<string>
+  deletePlayerNote: (steamId: string) => Promise<string>
+  viewPlayerNotes: () => string[]
+  getLoginNotes: (playerSteamId: string) => string[]
+}
+
 const ALARM_DEDUPE_WINDOW_MS = 30_000
 const HEARTBEAT_INTERVAL_MS = 30_000
 const HEARTBEAT_DEGRADED_THRESHOLD = 2
 const HEARTBEAT_DISCONNECTED_THRESHOLD = 5
+const TEAM_MESSAGE_DELAY_MS = 800
 
 function isRustplusConfigured(config: {
   serverIp: string | null
@@ -78,6 +97,19 @@ export function createConnectionInputFromPairing(
   }
 }
 
+function mapTeamMembers(teamInfo: any, nowIso: string): TeamMember[] {
+  const members = Array.isArray(teamInfo?.members) ? teamInfo.members : []
+  return members.map((member: any) => ({
+    steamId: String(member.steamId),
+    name: String(member.name ?? 'Unknown'),
+    isOnline: Boolean(member.isOnline),
+    isAlive: Boolean(member.isAlive),
+    x: Number(member.x ?? 0),
+    y: Number(member.y ?? 0),
+    lastSeenAt: nowIso,
+  }))
+}
+
 export class RustplusBridgeManager {
   private client: RustPlusLike | null = null
   private sessionId = 0
@@ -85,10 +117,15 @@ export class RustplusBridgeManager {
   private lastTriggeredAt = new Map<string, number>()
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null
   private heartbeatFailures = 0
+  private pendingTeamMessages: string[] = []
+  private teamMessageQueue: Promise<void> = Promise.resolve()
+  private knownOnlineStates = new Map<string, boolean>()
+  private teamInfoInitialized = false
 
   constructor(
     private readonly state: WorkerState,
     private readonly onAlarmTriggered: (input: AlarmTriggerInput) => Promise<void>,
+    private readonly teamCommands: TeamCommandCallbacks,
   ) {}
 
   async startFromConfig(config: WorkerConfig): Promise<void> {
@@ -122,6 +159,15 @@ export class RustplusBridgeManager {
     }
   }
 
+  sendTeamMessage(message: string): void {
+    if (!message.trim()) {
+      return
+    }
+
+    this.pendingTeamMessages.push(message)
+    this.flushPendingTeamMessages()
+  }
+
   private isDuplicateTrigger(entityId: string): boolean {
     const lastTrigger = this.lastTriggeredAt.get(entityId) ?? 0
     return Date.now() - lastTrigger < ALARM_DEDUPE_WINDOW_MS
@@ -138,6 +184,159 @@ export class RustplusBridgeManager {
     }
 
     this.heartbeatFailures = 0
+  }
+
+  private flushPendingTeamMessages(): void {
+    if (!this.client) {
+      return
+    }
+
+    if (this.pendingTeamMessages.length === 0) {
+      return
+    }
+
+    this.teamMessageQueue = this.teamMessageQueue
+      .catch(() => undefined)
+      .then(async () => {
+        while (this.client && this.pendingTeamMessages.length > 0) {
+          const nextMessage = this.pendingTeamMessages.shift()
+          if (!nextMessage) {
+            continue
+          }
+
+          this.client.sendTeamMessage(nextMessage)
+          await new Promise((resolve) => setTimeout(resolve, TEAM_MESSAGE_DELAY_MS))
+        }
+      })
+  }
+
+  private syncTeamInfo(currentSession: number, notifyOnLogin: boolean): void {
+    if (!this.client) {
+      return
+    }
+
+    this.client.getTeamInfo((message: any) => {
+      if (!this.client || currentSession !== this.sessionId) {
+        return
+      }
+
+      const teamInfo = message?.response?.teamInfo
+      if (!teamInfo) {
+        return
+      }
+
+      const nowIso = new Date().toISOString()
+      const members = mapTeamMembers(teamInfo, nowIso)
+      this.state.setTeamMembers(members)
+
+      const nextOnlineStates = new Map<string, boolean>()
+      members.forEach((member) => {
+        nextOnlineStates.set(member.steamId, member.isOnline)
+
+        if (!this.teamInfoInitialized || !notifyOnLogin) {
+          return
+        }
+
+        const wasOnline = this.knownOnlineStates.get(member.steamId) ?? false
+        if (!wasOnline && member.isOnline) {
+          const notes = this.teamCommands.getLoginNotes(member.steamId)
+          notes.forEach((note) => this.sendTeamMessage(note))
+        }
+      })
+
+      this.knownOnlineStates = nextOnlineStates
+      this.teamInfoInitialized = true
+    })
+  }
+
+  private async handleTeamCommand(rawText: string, senderSteamId: string, senderName: string): Promise<boolean> {
+    const text = rawText.trim()
+    if (text === '!time') {
+      if (!this.client) {
+        return true
+      }
+
+      this.client.getTime((timeMsg: any) => {
+        const time = timeMsg?.response?.time
+        if (!time) {
+          return
+        }
+
+        this.sendTeamMessage(`Current in-game time: ${formatRustTime(Number(time.time))}`)
+      })
+      return true
+    }
+
+    const timerMatch = text.match(/^!timer\s+(\d+):([0-5]\d)(?:\s+(.+))?$/i)
+    if (timerMatch) {
+      const durationHours = Number(timerMatch[1])
+      const durationMinutes = Number(timerMatch[2])
+      const name = timerMatch[3]?.trim() || null
+
+      if (durationHours === 0 && durationMinutes === 0) {
+        this.sendTeamMessage('Timer duration must be greater than 00:00.')
+        return true
+      }
+
+      const response = await this.teamCommands.createTeamTimer({
+        durationHours,
+        durationMinutes,
+        name,
+        creatorSteamId: senderSteamId,
+        creatorName: senderName,
+      })
+      this.sendTeamMessage(response)
+      return true
+    }
+
+    const checkTimerMatch = text.match(/^!checktimer(?:\s+(.+))?$/i)
+    if (checkTimerMatch) {
+      const name = checkTimerMatch[1]?.trim()
+      if (!name) {
+        this.sendTeamMessage('Usage: !checktimer [name]')
+        return true
+      }
+
+      this.sendTeamMessage(this.teamCommands.checkTeamTimer(name))
+      return true
+    }
+
+    const addNoteMatch = text.match(/^!?addnote\s+(.+)$/i)
+    if (addNoteMatch) {
+      const content = addNoteMatch[1].trim()
+      if (!content) {
+        this.sendTeamMessage('Usage: !addnote [content]')
+        return true
+      }
+
+      const response = await this.teamCommands.addPlayerNote(senderSteamId, senderName, content)
+      this.sendTeamMessage(response)
+      return true
+    }
+
+    if (/^!?deletenote\s*$/i.test(text)) {
+      const response = await this.teamCommands.deletePlayerNote(senderSteamId)
+      this.sendTeamMessage(response)
+      return true
+    }
+
+    if (/^!?viewnotes\s*$/i.test(text)) {
+      const notes = this.teamCommands.viewPlayerNotes()
+      if (notes.length === 0) {
+        this.sendTeamMessage('No saved player notes.')
+        return true
+      }
+
+      notes.forEach((note) => this.sendTeamMessage(note))
+      return true
+    }
+
+    if (/^!timer\b/i.test(text)) {
+      this.sendTeamMessage('Usage: !timer [hours:minutes] [optional name]')
+      return true
+    }
+
+    return false
   }
 
   private startHeartbeat(): void {
@@ -180,6 +379,7 @@ export class RustplusBridgeManager {
           currentRustTime: formatRustTime(Number(time.time)),
           lastHeartbeatAt: new Date().toISOString(),
         })
+        this.syncTeamInfo(this.sessionId, true)
       })
     }, HEARTBEAT_INTERVAL_MS)
   }
@@ -222,30 +422,7 @@ export class RustplusBridgeManager {
 
       this.state.setRustplusMode('connected')
       this.startHeartbeat()
-
-      /* ── In-game team chat commands ── */
-      client.on('message', (msg: any) => {
-        if (currentSession !== this.sessionId) {
-          return
-        }
-
-        const teamMessage = msg?.broadcast?.teamMessage
-        if (!teamMessage?.message?.message) {
-          return
-        }
-
-        const text = String(teamMessage.message.message).trim()
-        if (text === '!time') {
-          client.getTime((timeMsg: any) => {
-            const time = timeMsg?.response?.time
-            if (!time) {
-              return
-            }
-
-            client.sendTeamMessage(`Current in-game time: ${formatRustTime(Number(time.time))}`)
-          })
-        }
-      })
+      this.flushPendingTeamMessages()
 
       client.getTime((message: any) => {
         if (currentSession !== this.sessionId) {
@@ -262,9 +439,9 @@ export class RustplusBridgeManager {
           lastHeartbeatAt: new Date().toISOString(),
         })
       })
+      this.syncTeamInfo(currentSession, false)
 
       const entityIds = [activeConnection.smallOilEntityId, activeConnection.largeOilEntityId].filter(Boolean) as string[]
-
       entityIds.forEach((entityId) => {
         client.getEntityInfo(entityId)
       })
@@ -300,6 +477,22 @@ export class RustplusBridgeManager {
         return
       }
 
+      const teamMessage = message?.broadcast?.teamMessage?.message
+      if (teamMessage?.message) {
+        const handled = await this.handleTeamCommand(
+          String(teamMessage.message).trim(),
+          String(teamMessage.steamId),
+          String(teamMessage.name ?? 'Unknown'),
+        )
+        if (handled) {
+          return
+        }
+      }
+
+      if (message?.broadcast?.teamChanged?.teamInfo) {
+        this.syncTeamInfo(currentSession, true)
+      }
+
       const entityChanged = message?.broadcast?.entityChanged
       if (!entityChanged || !entityChanged.payload?.value) {
         return
@@ -317,7 +510,6 @@ export class RustplusBridgeManager {
         return
       }
 
-      /* Deduplicate: skip triggers from the same entity within the cooldown window. */
       if (this.isDuplicateTrigger(entityId)) {
         return
       }
@@ -341,8 +533,9 @@ export class RustplusBridgeManager {
     }
 
     this.clearHeartbeat()
-
     this.client.disconnect()
     this.client = null
+    this.teamInfoInitialized = false
+    this.knownOnlineStates.clear()
   }
 }

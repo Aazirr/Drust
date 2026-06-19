@@ -1,6 +1,6 @@
 # Product Spec
 
-Last updated: 2026-06-13
+Last updated: 2026-06-19
 
 ## MVP Focus
 
@@ -53,6 +53,25 @@ Do not build these in the first pass, but they fit the direction:
 - `/op-note`
 - `/extract-call`
 - `/cargo-watch`
+
+## In-Game Team Chat Commands
+
+The Rust+ team chat surface can carry a small set of quick coordination commands for players who are already in raid flow and do not want to leave the game.
+
+- `!time`
+  - Shows the current in-game Rust time.
+- `!timer [hours:minutes] [optional name]`
+  - Starts a custom team timer.
+  - When it finishes, Drust posts an in-game team chat notification and a Discord alert.
+- `!checktimer [name]`
+  - Shows the remaining time for an active named custom timer.
+- `!addnote [content]`
+  - Saves or replaces the note owned by the player who sent the command.
+  - The note is replayed to teammates in team chat when they come online later.
+- `!deletenote`
+  - Deletes the sender's saved note.
+- `!viewnotes`
+  - Shows all saved player notes in team chat, one message per player note.
 
 ## Discord Ping Rules
 

@@ -80,6 +80,7 @@ Status: In progress
 - [x] Replaced the Drust monogram with a mouse-inspired circular badge based on the provided reference image.
 - [x] Reworked the Drust logo to lean more toward a rat-inspired emblem while staying original to the brand.
 - [x] Hardened the alert system so triggered and countdown Discord alerts are only marked complete after successful bot delivery, missed alerts can retry, rescheduling preserves checkpoint history, and bot role pings use the configured Rust role.
+- [x] Added new in-game Rust+ team chat commands for custom timers, named timer checks, persistent player notes, note deletion, note listing, login note replay, and Discord completion pings for custom timers.
 
 ## Phase 3 - Validation
 

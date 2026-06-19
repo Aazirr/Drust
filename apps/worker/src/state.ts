@@ -15,6 +15,7 @@ import {
   type RustplusEntityPairing,
   type RustplusServerPairing,
   type StartOperationInput,
+  type TeamMember,
 } from '@drust/domain'
 
 export class WorkerState {
@@ -80,6 +81,17 @@ export class WorkerState {
       serverConnection: {
         ...this.snapshot.serverConnection,
         ...patch,
+      },
+      updatedAt: new Date().toISOString(),
+    }
+  }
+
+  setTeamMembers(members: TeamMember[]): void {
+    this.snapshot = {
+      ...this.snapshot,
+      map: {
+        ...this.snapshot.map,
+        teamMembers: members,
       },
       updatedAt: new Date().toISOString(),
     }

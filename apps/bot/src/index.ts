@@ -14,6 +14,7 @@ import {
   operationStatusEmbed,
   pairingStatusEmbed,
   statusEmbed,
+  teamAlertEmbed,
   timerActionEmbed,
 } from './embeds.js'
 import { WorkerClient } from './worker-client.js'
@@ -31,6 +32,11 @@ interface OperationAlertPayload {
   endsAt: string
   operationId: string
   remainingMinutes?: number
+}
+
+interface TeamAlertPayload {
+  title: string
+  body: string
 }
 
 function getValidatedBotConfig(): typeof config & {
@@ -198,6 +204,35 @@ async function sendOperationAlert(
   response.end(JSON.stringify({ status: 'sent', operationId: payload.operationId }))
 }
 
+async function sendTeamAlert(
+  client: Client,
+  payload: TeamAlertPayload,
+  response: ServerResponse,
+): Promise<void> {
+  if (!config.alertsChannelId) {
+    response.writeHead(503, { 'content-type': 'application/json' })
+    response.end(JSON.stringify({ message: 'DISCORD_ALERTS_CHANNEL_ID is not configured.' }))
+    return
+  }
+
+  const channel = await resolveAlertsChannel(client)
+  if (!channel?.isTextBased() || !channel.isSendable() || channel.type === ChannelType.GuildVoice) {
+    response.writeHead(503, { 'content-type': 'application/json' })
+    response.end(JSON.stringify({ message: 'Configured alerts channel is not a text channel.' }))
+    return
+  }
+
+  const roleId = config.rustRoleId
+  await channel.send({
+    content: roleId ? `<@&${roleId}>` : undefined,
+    embeds: [teamAlertEmbed(payload.title, payload.body)],
+    allowedMentions: roleId ? { roles: [roleId] } : { parse: [] },
+  })
+
+  response.writeHead(200, { 'content-type': 'application/json' })
+  response.end(JSON.stringify({ status: 'sent' }))
+}
+
 function createHealthServer(port: number, client: Client): void {
   const server = createServer(async (request, response) => {
     if (request.method === 'GET' && request.url === '/health') {
@@ -240,6 +275,37 @@ function createHealthServer(port: number, client: Client): void {
       try {
         const payload = await readJson<OperationAlertPayload>(request)
         await sendOperationAlert(client, payload, response)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown Discord delivery error.'
+        response.writeHead(500, { 'content-type': 'application/json' })
+        response.end(JSON.stringify({ message }))
+      }
+      return
+    }
+
+    if (request.method === 'POST' && request.url === '/internal/alerts/team') {
+      if (!config.internalToken) {
+        response.writeHead(503, { 'content-type': 'application/json' })
+        response.end(JSON.stringify({ message: 'DRUST_BOT_INTERNAL_TOKEN is not configured.' }))
+        return
+      }
+
+      const authorization = request.headers.authorization ?? ''
+      if (authorization !== `Bearer ${config.internalToken}`) {
+        response.writeHead(401, { 'content-type': 'application/json' })
+        response.end(JSON.stringify({ message: 'Unauthorized.' }))
+        return
+      }
+
+      if (!botReady) {
+        response.writeHead(503, { 'content-type': 'application/json' })
+        response.end(JSON.stringify({ message: 'Discord bot is not ready yet.' }))
+        return
+      }
+
+      try {
+        const payload = await readJson<TeamAlertPayload>(request)
+        await sendTeamAlert(client, payload, response)
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown Discord delivery error.'
         response.writeHead(500, { 'content-type': 'application/json' })
