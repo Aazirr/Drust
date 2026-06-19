@@ -536,6 +536,10 @@ export class RustplusBridgeManager {
 
   private syncTeamPresence(message: any): void {
     const syncTimestamp = new Date().toISOString()
+    const changedPlayerId = message?.broadcast?.teamChanged?.playerId
+      ? String(message.broadcast.teamChanged.playerId)
+      : null
+    const previousMemberIds = new Set(this.teamOnlineStates.keys())
     const members = this.extractTeamInfo(message)
       .map((member) => normalizeTeamPresenceMember(member, syncTimestamp))
       .filter((member): member is TeamMember => Boolean(member))
@@ -558,13 +562,34 @@ export class RustplusBridgeManager {
       return
     }
 
+    const currentMemberIds = new Set(members.map((member) => member.steamId))
+
+    if (this.seenTeamPresence) {
+      previousMemberIds.forEach((steamId) => {
+        if (!currentMemberIds.has(steamId)) {
+          this.teamOnlineStates.set(steamId, false)
+        }
+      })
+    }
+
     this.state.setTeamMembers(members)
 
     members.forEach((member) => {
       const previousOnline = this.teamOnlineStates.get(member.steamId)
-      if (this.seenTeamPresence && previousOnline === false && member.isOnline) {
+      const previousKnown = previousMemberIds.has(member.steamId)
+      const shouldReplayLoginNote =
+        this.seenTeamPresence &&
+        member.isOnline &&
+        (previousOnline === false || (!previousKnown && changedPlayerId === member.steamId))
+
+      if (shouldReplayLoginNote) {
         const loginNote = this.teamCommands.getPlayerNoteMessage(member.steamId)
         if (loginNote) {
+          this.state.recordDebugLog({
+            category: 'discord',
+            message: 'Replayed teammate note after login.',
+            detail: member.name,
+          })
           this.sendTeamMessage(loginNote)
         }
       }
