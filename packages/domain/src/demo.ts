@@ -21,6 +21,10 @@ const featureFlags: FeatureFlags = {
   countdownPings: true,
 }
 
+const alertSettings = {
+  oilRigDiscordPingsEnabled: true,
+}
+
 const rustplusPairing: RustplusPairingGuide = {
   status: 'idle',
   sessionId: null,
@@ -77,6 +81,7 @@ export function createDemoSnapshot(now = new Date()): DashboardSnapshot {
     alarmBindings: [],
     map,
     discordConfig,
+    alertSettings,
     activityLog: [],
     debugLog: [],
     roles: [],

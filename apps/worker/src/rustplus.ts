@@ -49,6 +49,7 @@ export interface TeamCommandCallbacks {
   checkTeamTimer: (name: string) => string
   addPlayerNote: (steamId: string, playerName: string, content: string) => Promise<string>
   deletePlayerNote: (steamId: string) => Promise<string>
+  toggleOilRigDiscordPings: () => Promise<string>
   getPlayerNoteMessage: (steamId: string) => string | null
   viewPlayerNotes: () => string[]
 }
@@ -354,7 +355,7 @@ export class RustplusBridgeManager {
   }
 
   private sendCommandHelp(): void {
-    this.sendTeamMessage('Drust commands: !help | !commands | !time | !timer [hours:minutes] [name] | !checktimer [name]')
+    this.sendTeamMessage('Drust commands: !help | !commands | !time | !timer [hours:minutes] [name] | !checktimer [name] | !alerttoggle')
     this.sendTeamMessage('Notes: !addnote [content] | !deletenote | !viewnotes')
   }
 
@@ -497,6 +498,17 @@ export class RustplusBridgeManager {
       }
 
       notes.forEach((note) => this.sendTeamMessage(note))
+      return true
+    }
+
+    if (/^!?alerttoggle\s*$/i.test(text)) {
+      const response = await this.teamCommands.toggleOilRigDiscordPings()
+      this.sendTeamMessage(response)
+      return true
+    }
+
+    if (/^!?alerttoggle\b/i.test(text)) {
+      this.sendTeamMessage('Usage: !alerttoggle')
       return true
     }
 

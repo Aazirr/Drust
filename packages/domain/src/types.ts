@@ -79,6 +79,10 @@ export interface DiscordConfiguration {
   oilCounterRoleId: string
 }
 
+export interface AlertSettings {
+  oilRigDiscordPingsEnabled: boolean
+}
+
 export interface ActivityLog {
   eventId: string
   type: ActivityType
@@ -185,6 +189,7 @@ export interface DashboardSnapshot {
   alarmBindings: AlarmBinding[]
   map: MapSnapshot
   discordConfig: DiscordConfiguration
+  alertSettings: AlertSettings
   activityLog: ActivityLog[]
   debugLog: DebugLogEntry[]
   roles: RoleAssignment[]

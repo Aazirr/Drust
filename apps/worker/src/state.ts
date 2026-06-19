@@ -8,6 +8,7 @@ import {
   startOperationFromAlarm,
   withDerivedSnapshot,
   type AlarmTriggerInput,
+  type AlertSettings,
   type DashboardSnapshot,
   type DebugLogCategory,
   type DebugLogLevel,
@@ -64,6 +65,27 @@ export class WorkerState {
       },
       updatedAt: new Date().toISOString(),
     }
+  }
+
+  setOilRigDiscordPingsEnabled(enabled: boolean): void {
+    this.snapshot = {
+      ...this.snapshot,
+      alertSettings: {
+        ...this.snapshot.alertSettings,
+        oilRigDiscordPingsEnabled: enabled,
+      } satisfies AlertSettings,
+      updatedAt: new Date().toISOString(),
+    }
+  }
+
+  toggleOilRigDiscordPingsEnabled(): boolean {
+    const nextEnabled = !this.snapshot.alertSettings.oilRigDiscordPingsEnabled
+    this.setOilRigDiscordPingsEnabled(nextEnabled)
+    return nextEnabled
+  }
+
+  areOilRigDiscordPingsEnabled(): boolean {
+    return this.snapshot.alertSettings.oilRigDiscordPingsEnabled
   }
 
   syncDiscordMode({

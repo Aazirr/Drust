@@ -75,6 +75,8 @@ The Rust+ team chat surface can carry a small set of quick coordination commands
   - Deletes the sender's saved note.
 - `!viewnotes`
   - Shows all saved player notes in team chat, one message per player note.
+- `!alerttoggle`
+  - Toggles Discord ping notifications for Oil Rig operations on or off.
 - When a teammate logs in, Drust should replay that player's saved note once in team chat.
 All project timer displays should use GMT+8 / Asia-Manila so the dashboard, Discord, and in-game timer messages stay aligned.
 
@@ -93,6 +95,7 @@ All project timer displays should use GMT+8 / Asia-Manila so the dashboard, Disc
   - 2 minutes remaining
   - 1 minute remaining
   - 0 minutes remaining
+- Discord pings for Oil Rig operations can be muted at runtime with `!alerttoggle`.
 - Duplicate alarm events should be debounced so one trigger does not create multiple operations.
 - Marker-based CH47 alerts must stay disabled until live validation proves they are reliable enough.
 

@@ -88,6 +88,7 @@ Status: In progress
 - [x] Clarified that `!addnote` overwrites an existing note for the same player and reports the update in chat.
 - [x] Restored teammate login note replay with a patched Rust+ team-info decode path so missing presence fields no longer crash the worker.
 - [x] Added a dashboard Debug Logs tab with worker-side Rust+, Smart Alarm, Discord, persistence, and alert pipeline diagnostics.
+- [x] Added `!alerttoggle` to mute or restore Discord ping notifications for Oil Rig operations at runtime.
 
 ## Phase 3 - Validation
 

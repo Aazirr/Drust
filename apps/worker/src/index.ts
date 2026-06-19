@@ -236,6 +236,19 @@ function viewPlayerNotes(): string[] {
     .map((note) => `${note.playerName}: ${note.content}`)
 }
 
+async function toggleOilRigDiscordPings(): Promise<string> {
+  const nextEnabled = state.toggleOilRigDiscordPingsEnabled()
+  await persistence.saveOilRigDiscordPingsEnabled(nextEnabled)
+  state.recordDebugLog({
+    category: 'discord',
+    message: 'Oil Rig Discord ping setting toggled from team chat.',
+    detail: nextEnabled ? 'Enabled' : 'Disabled',
+  })
+  return nextEnabled
+    ? 'Oil Rig Discord pings are now enabled.'
+    : 'Oil Rig Discord pings are now disabled.'
+}
+
 function getPlayerNoteMessage(steamId: string): string | null {
   const note = playerNotes.get(steamId)
   if (!note) {
@@ -250,6 +263,7 @@ rustplusBridge = new RustplusBridgeManager(state, handleAlarmTriggered, {
   checkTeamTimer,
   addPlayerNote,
   deletePlayerNote,
+  toggleOilRigDiscordPings,
   getPlayerNoteMessage,
   viewPlayerNotes,
 })
@@ -293,10 +307,17 @@ async function refreshDiscordStatus(force = false): Promise<void> {
 
 async function hydratePersistedRustplusState(): Promise<void> {
   await persistence.init()
+  const oilRigDiscordPingsEnabled = await persistence.loadOilRigDiscordPingsEnabled()
   state.recordDebugLog({
     category: 'worker',
     message: 'Hydrating persisted Rust+ state.',
     detail: persistence.enabled ? 'Postgres persistence enabled.' : 'Postgres persistence disabled.',
+  })
+  state.setOilRigDiscordPingsEnabled(oilRigDiscordPingsEnabled)
+  state.recordDebugLog({
+    category: 'discord',
+    message: 'Loaded Oil Rig Discord ping setting.',
+    detail: oilRigDiscordPingsEnabled ? 'Enabled' : 'Disabled',
   })
 
   const persistedState = await persistence.loadRustplusState()
@@ -411,17 +432,6 @@ async function handleAlarmTriggered(input: AlarmTriggerInput): Promise<void> {
   }
 
   await persistOperation()
-
-  if (!discord.enabled) {
-    state.recordDebugLog({
-      level: 'warn',
-      category: 'discord',
-      message: 'Skipped operation alert because Discord delivery is disabled.',
-      target: input.target,
-      entityId: input.entityId,
-    })
-    return
-  }
 
   const snapshot = state.getSnapshot()
   const operation = snapshot.activeOperations.find((op) => op.target === input.target && op.status === 'active')
@@ -564,6 +574,17 @@ async function sendOperationAlert(payload: BotOperationAlertPayload, activityMes
       level: 'warn',
       category: 'discord',
       message: 'Skipped operation Discord alert because delivery is disabled.',
+      detail: payload.operationId,
+      target: payload.target,
+    })
+    return false
+  }
+
+  if (!state.areOilRigDiscordPingsEnabled()) {
+    state.recordDebugLog({
+      level: 'warn',
+      category: 'discord',
+      message: 'Skipped operation Discord alert because Oil Rig pings are disabled.',
       detail: payload.operationId,
       target: payload.target,
     })

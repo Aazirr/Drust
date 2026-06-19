@@ -54,6 +54,12 @@ type PersistedPlayerNoteRow = {
   created_at: Date
 }
 
+type PersistedWorkerSettingRow = {
+  setting_key: string
+  setting_value: string
+  updated_at: Date
+}
+
 export class WorkerPersistence {
   private readonly pool: Pool | null
 
@@ -137,6 +143,14 @@ export class WorkerPersistence {
         player_name TEXT NOT NULL,
         content TEXT NOT NULL,
         created_at TIMESTAMPTZ NOT NULL
+      )
+    `)
+
+    await this.pool.query(`
+      CREATE TABLE IF NOT EXISTS worker_setting (
+        setting_key TEXT PRIMARY KEY,
+        setting_value TEXT NOT NULL,
+        updated_at TIMESTAMPTZ NOT NULL
       )
     `)
   }
@@ -475,6 +489,50 @@ export class WorkerPersistence {
         WHERE steam_id = $1
       `,
       [steamId],
+    )
+  }
+
+  async loadOilRigDiscordPingsEnabled(): Promise<boolean> {
+    if (!this.pool) {
+      return true
+    }
+
+    const result = await this.pool.query<PersistedWorkerSettingRow>(`
+      SELECT
+        setting_key,
+        setting_value,
+        updated_at
+      FROM worker_setting
+      WHERE setting_key = 'oil_rig_discord_pings_enabled'
+      LIMIT 1
+    `)
+
+    const row = result.rows[0]
+    if (!row) {
+      return true
+    }
+
+    return row.setting_value === 'true'
+  }
+
+  async saveOilRigDiscordPingsEnabled(enabled: boolean): Promise<void> {
+    if (!this.pool) {
+      return
+    }
+
+    await this.pool.query(
+      `
+        INSERT INTO worker_setting (
+          setting_key,
+          setting_value,
+          updated_at
+        )
+        VALUES ('oil_rig_discord_pings_enabled', $1, NOW())
+        ON CONFLICT (setting_key) DO UPDATE SET
+          setting_value = EXCLUDED.setting_value,
+          updated_at = EXCLUDED.updated_at
+      `,
+      [enabled ? 'true' : 'false'],
     )
   }
 

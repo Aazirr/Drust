@@ -829,6 +829,10 @@ function ConfigViewPage({
           <ConfigItem label="System Channel" value={formatDisplayValue(snapshot.discordConfig.systemChannelId)} />
           <ConfigItem label="Operations Role" value={formatDisplayValue(snapshot.discordConfig.operationsRoleId)} />
           <ConfigItem label="Integration Status" value={formatDiscordStatus(snapshot.integrations.discord)} />
+          <ConfigItem
+            label="Oil Rig Discord Pings"
+            value={snapshot.alertSettings.oilRigDiscordPingsEnabled ? 'Enabled' : 'Disabled'}
+          />
         </div>
         </section>
 
