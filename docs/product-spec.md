@@ -75,8 +75,7 @@ The Rust+ team chat surface can carry a small set of quick coordination commands
   - Deletes the sender's saved note.
 - `!viewnotes`
   - Shows all saved player notes in team chat, one message per player note.
-
-Note replay on teammate login is paused until team presence can be read through Rust+ without hitting current `getTeamInfo()` decode failures from missing optional-looking player status fields.
+- When a teammate logs in, Drust should replay that player's saved note once in team chat.
 All project timer displays should use GMT+8 / Asia-Manila so the dashboard, Discord, and in-game timer messages stay aligned.
 
 ## Discord Ping Rules

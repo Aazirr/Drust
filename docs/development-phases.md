@@ -86,6 +86,7 @@ Status: In progress
 - [x] Added `!help` and `!commands` in-game aliases that print the current Rust+ team chat command list.
 - [x] Standardized project timer display timestamps to GMT+8 / Asia-Manila across the dashboard, Discord, and in-game timer messages.
 - [x] Clarified that `!addnote` overwrites an existing note for the same player and reports the update in chat.
+- [x] Restored teammate login note replay with a patched Rust+ team-info decode path so missing presence fields no longer crash the worker.
 
 ## Phase 3 - Validation
 

@@ -1,4 +1,9 @@
-import type { AlarmTriggerInput, RustplusServerPairing } from '@drust/domain'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import { createRequire } from 'node:module'
+import type { AlarmTriggerInput, RustplusServerPairing, TeamMember } from '@drust/domain'
+import protobuf from 'protobufjs'
+import WebSocket from 'ws'
 import type { WorkerConfig } from './config.js'
 import { WorkerState } from './state.js'
 
@@ -17,6 +22,7 @@ type RustPlusLike = {
   disconnect: () => void
   getEntityInfo: (entityId: string, callback?: (message: unknown) => void) => void
   getInfo: (callback?: (message: any) => void) => void
+  getTeamInfo: (callback?: (message: any) => void) => void
   getTime: (callback?: (message: any) => void) => void
   sendTeamMessage: (message: string) => void
 }
@@ -43,16 +49,129 @@ export interface TeamCommandCallbacks {
   checkTeamTimer: (name: string) => string
   addPlayerNote: (steamId: string, playerName: string, content: string) => Promise<string>
   deletePlayerNote: (steamId: string) => Promise<string>
+  getPlayerNoteMessage: (steamId: string) => string | null
   viewPlayerNotes: () => string[]
 }
 
 const ALARM_DEDUPE_WINDOW_MS = 30_000
 const HEARTBEAT_INTERVAL_MS = 30_000
+const TEAM_PRESENCE_INTERVAL_MS = 30_000
 const HEARTBEAT_DEGRADED_THRESHOLD = 2
 const HEARTBEAT_DISCONNECTED_THRESHOLD = 5
 const TEAM_MESSAGE_DELAY_MS = 800
 const RECONNECT_BASE_DELAY_MS = 5_000
 const RECONNECT_MAX_DELAY_MS = 60_000
+const require = createRequire(import.meta.url)
+const rustplusModuleDir = path.dirname(require.resolve('@liamcottle/rustplus.js/package.json'))
+const rustplusProtoPath = path.join(rustplusModuleDir, 'rustplus.proto')
+const teamInfoFieldPatches = [
+  ['required uint64 steamId = 1;', 'optional uint64 steamId = 1;'],
+  ['required string name = 2;', 'optional string name = 2;'],
+  ['required float x = 3;', 'optional float x = 3;'],
+  ['required float y = 4;', 'optional float y = 4;'],
+  ['required bool isOnline = 5;', 'optional bool isOnline = 5;'],
+  ['required uint32 spawnTime = 6;', 'optional uint32 spawnTime = 6;'],
+  ['required bool isAlive = 7;', 'optional bool isAlive = 7;'],
+  ['required uint32 deathTime = 8;', 'optional uint32 deathTime = 8;'],
+] as const
+
+let patchedRustplusRoot: protobuf.Root | null = null
+
+function getPatchedRustplusRoot(): protobuf.Root {
+  if (patchedRustplusRoot) {
+    return patchedRustplusRoot
+  }
+
+  const originalProto = readFileSync(rustplusProtoPath, 'utf8')
+  const patchedProto = teamInfoFieldPatches.reduce(
+    (source, [search, replacement]) => source.replace(search, replacement),
+    originalProto,
+  )
+
+  patchedRustplusRoot = protobuf.parse(patchedProto).root
+  return patchedRustplusRoot
+}
+
+const RustPlusBase = require('@liamcottle/rustplus.js') as any
+
+class PatchedRustPlus extends RustPlusBase {
+  constructor(server: string, port: number, playerId: string, playerToken: string) {
+    super(server, port, playerId, playerToken)
+  }
+
+  connect(): void {
+    const root = getPatchedRustplusRoot()
+
+    if (this.websocket) {
+      this.disconnect()
+    }
+
+    this.AppRequest = root.lookupType('rustplus.AppRequest')
+    this.AppMessage = root.lookupType('rustplus.AppMessage')
+
+    this.emit('connecting')
+
+    const address = this.useFacepunchProxy
+      ? `wss://companion-rust.facepunch.com/game/${this.server}/${this.port}`
+      : `ws://${this.server}:${this.port}`
+
+    this.websocket = new WebSocket(address)
+
+    this.websocket.on('open', () => {
+      this.emit('connected')
+    })
+
+    this.websocket.on('error', (error: Error) => {
+      this.emit('error', error)
+    })
+
+    this.websocket.on('message', (data: WebSocket.RawData) => {
+      const payload = data instanceof Buffer ? data : Buffer.from(data as ArrayBuffer)
+      const message = this.AppMessage.decode(payload)
+
+      if (message.response && message.response.seq && this.seqCallbacks[message.response.seq]) {
+        const callback = this.seqCallbacks[message.response.seq]
+        const result = callback(message)
+        delete this.seqCallbacks[message.response.seq]
+
+        if (result) {
+          return
+        }
+      }
+
+      this.emit('message', message)
+    })
+
+    this.websocket.on('close', () => {
+      this.emit('disconnected')
+    })
+  }
+}
+
+type TeamPresenceMember = {
+  steamId?: string | number | bigint | null
+  name?: string | null
+  x?: number | null
+  y?: number | null
+  isOnline?: boolean | null
+  isAlive?: boolean | null
+}
+
+function normalizeTeamPresenceMember(member: TeamPresenceMember, fallbackTimestamp: string): TeamMember | null {
+  if (member.steamId === null || member.steamId === undefined) {
+    return null
+  }
+
+  return {
+    steamId: String(member.steamId),
+    name: member.name?.trim() || 'Unknown',
+    isOnline: Boolean(member.isOnline),
+    isAlive: member.isAlive ?? true,
+    x: Number(member.x ?? 0),
+    y: Number(member.y ?? 0),
+    lastSeenAt: fallbackTimestamp,
+  }
+}
 
 function isRustplusConfigured(config: {
   serverIp: string | null
@@ -103,11 +222,15 @@ export class RustplusBridgeManager {
   private currentConnection: RustplusConnectionInput | null = null
   private lastTriggeredAt = new Map<string, number>()
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null
+  private teamPresenceTimer: ReturnType<typeof setInterval> | null = null
   private heartbeatFailures = 0
   private pendingTeamMessages: string[] = []
   private teamMessageQueue: Promise<void> = Promise.resolve()
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private reconnectAttempts = 0
+  private seenTeamPresence = false
+  private teamOnlineStates = new Map<string, boolean>()
+  private teamLastSeenAt = new Map<string, string>()
 
   constructor(
     private readonly state: WorkerState,
@@ -218,6 +341,19 @@ export class RustplusBridgeManager {
     }
 
     this.heartbeatFailures = 0
+  }
+
+  private clearTeamPresence(): void {
+    if (this.teamPresenceTimer) {
+      clearInterval(this.teamPresenceTimer)
+      this.teamPresenceTimer = null
+    }
+  }
+
+  private resetTeamPresenceState(): void {
+    this.seenTeamPresence = false
+    this.teamOnlineStates.clear()
+    this.teamLastSeenAt.clear()
   }
 
   private flushPendingTeamMessages(): void {
@@ -339,6 +475,83 @@ export class RustplusBridgeManager {
     return false
   }
 
+  private extractTeamInfo(message: any): TeamPresenceMember[] {
+    const responseMembers = message?.response?.teamInfo?.members
+    if (Array.isArray(responseMembers)) {
+      return responseMembers as TeamPresenceMember[]
+    }
+
+    const broadcastMembers = message?.broadcast?.teamChanged?.teamInfo?.members
+    if (Array.isArray(broadcastMembers)) {
+      return broadcastMembers as TeamPresenceMember[]
+    }
+
+    return []
+  }
+
+  private syncTeamPresence(message: any): void {
+    const syncTimestamp = new Date().toISOString()
+    const members = this.extractTeamInfo(message)
+      .map((member) => normalizeTeamPresenceMember(member, syncTimestamp))
+      .filter((member): member is TeamMember => Boolean(member))
+      .map((member) => {
+        const lastSeenAt = member.isOnline
+          ? syncTimestamp
+          : this.teamLastSeenAt.get(member.steamId) ?? member.lastSeenAt
+
+        if (member.isOnline) {
+          this.teamLastSeenAt.set(member.steamId, syncTimestamp)
+        }
+
+        return {
+          ...member,
+          lastSeenAt,
+        }
+      })
+
+    if (members.length === 0) {
+      return
+    }
+
+    this.state.setTeamMembers(members)
+
+    members.forEach((member) => {
+      const previousOnline = this.teamOnlineStates.get(member.steamId)
+      if (this.seenTeamPresence && previousOnline === false && member.isOnline) {
+        const loginNote = this.teamCommands.getPlayerNoteMessage(member.steamId)
+        if (loginNote) {
+          this.sendTeamMessage(loginNote)
+        }
+      }
+
+      this.teamOnlineStates.set(member.steamId, member.isOnline)
+    })
+
+    this.seenTeamPresence = true
+  }
+
+  private requestTeamPresence(): void {
+    if (!this.client) {
+      return
+    }
+
+    this.client.getTeamInfo((message: any) => {
+      if (!this.client) {
+        return
+      }
+
+      this.syncTeamPresence(message)
+    })
+  }
+
+  private startTeamPresencePolling(): void {
+    this.clearTeamPresence()
+    this.requestTeamPresence()
+    this.teamPresenceTimer = setInterval(() => {
+      this.requestTeamPresence()
+    }, TEAM_PRESENCE_INTERVAL_MS)
+  }
+
   private startHeartbeat(): void {
     this.clearHeartbeat()
     this.heartbeatTimer = setInterval(() => {
@@ -387,20 +600,12 @@ export class RustplusBridgeManager {
     const activeConnection = { ...connection }
     this.currentConnection = activeConnection
 
-    const module = await import('@liamcottle/rustplus.js')
-    const RustPlus = (module.default ?? module) as new (
-      serverIp: string,
-      appPort: number,
-      playerId: string,
-      playerToken: string,
-    ) => RustPlusLike
-
-    const client = new RustPlus(
+    const client = new PatchedRustPlus(
       connection.serverIp,
       connection.appPort,
       connection.playerId,
       connection.playerToken,
-    )
+    ) as RustPlusLike
 
     this.client = client
 
@@ -420,6 +625,7 @@ export class RustplusBridgeManager {
       this.reconnectAttempts = 0
       this.state.setRustplusMode('connected')
       this.startHeartbeat()
+      this.startTeamPresencePolling()
       this.flushPendingTeamMessages()
 
       client.getTime((message: any) => {
@@ -450,6 +656,8 @@ export class RustplusBridgeManager {
       }
 
       this.clearHeartbeat()
+      this.clearTeamPresence()
+      this.resetTeamPresenceState()
       this.state.updateServerConnection({
         connectionStatus: 'disconnected',
         lastError: 'Rust+ disconnected.',
@@ -486,6 +694,10 @@ export class RustplusBridgeManager {
         if (handled) {
           return
         }
+      }
+
+      if (message?.broadcast?.teamChanged?.teamInfo?.members) {
+        this.syncTeamPresence(message)
       }
 
       const entityChanged = message?.broadcast?.entityChanged
@@ -528,6 +740,8 @@ export class RustplusBridgeManager {
     }
 
     this.clearHeartbeat()
+    this.clearTeamPresence()
+    this.resetTeamPresenceState()
     this.client.disconnect()
     this.client = null
   }

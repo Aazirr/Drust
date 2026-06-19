@@ -219,11 +219,21 @@ function viewPlayerNotes(): string[] {
     .map((note) => `${note.playerName}: ${note.content}`)
 }
 
+function getPlayerNoteMessage(steamId: string): string | null {
+  const note = playerNotes.get(steamId)
+  if (!note) {
+    return null
+  }
+
+  return `${note.playerName}: ${note.content}`
+}
+
 rustplusBridge = new RustplusBridgeManager(state, handleAlarmTriggered, {
   createTeamTimer,
   checkTeamTimer,
   addPlayerNote,
   deletePlayerNote,
+  getPlayerNoteMessage,
   viewPlayerNotes,
 })
 
