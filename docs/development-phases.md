@@ -85,6 +85,7 @@ Status: In progress
 - [x] Fixed a worker crash loop caused by Rust+ `getTeamInfo()` decode failures when team members omit status fields; paused automatic login note replay while keeping manual note commands available.
 - [x] Added `!help` and `!commands` in-game aliases that print the current Rust+ team chat command list.
 - [x] Standardized project timer display timestamps to GMT+8 / Asia-Manila across the dashboard, Discord, and in-game timer messages.
+- [x] Clarified that `!addnote` overwrites an existing note for the same player and reports the update in chat.
 
 ## Phase 3 - Validation
 

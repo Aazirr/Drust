@@ -189,6 +189,7 @@ function checkTeamTimer(name: string): string {
 }
 
 async function addPlayerNote(steamId: string, playerName: string, content: string): Promise<string> {
+  const existing = playerNotes.get(steamId)
   const note: PersistedPlayerNote = {
     steamId,
     playerName,
@@ -198,7 +199,7 @@ async function addPlayerNote(steamId: string, playerName: string, content: strin
 
   playerNotes.set(steamId, note)
   await persistence.savePlayerNote(note)
-  return `Saved note for ${playerName}.`
+  return existing ? `Updated note for ${playerName}.` : `Saved note for ${playerName}.`
 }
 
 async function deletePlayerNote(steamId: string): Promise<string> {
